@@ -1,0 +1,64 @@
+﻿offset,type,count,name,Saved to file?,Comments
+0x0,Part,,next,,
+0x2,Part,,prev,,
+0x4,PartType,,type,y,
+0x6,Flag,,flags1,y,"If 0x10 is set, the part is ephemeral and needs to be cleaned up (e.g. bullet, spawned rope)"
+0x8,Flag,,flags2,,
+0xa,Flag,,flags3,y (except bit 0x10),"flags | 0x40 = locked. Alligator: flag & 0x80: 0=not eaten, 1=eaten."
+0xc,uint,,state1,,
+0xe,uint,,state1_prev1,,
+0x10,uint,,state1_prev2,,
+0x12,uint,,state2,,
+0x14,byte,,,,
+0x15,byte,,,,
+0x16,long,,pos_x_hi_precision,,this >> 9 gets transferred to pos.x
+0x1a,long,,pos_y_hi_precision,,this >> 9 gets transferred to pos.y
+0x1e,ShortVec,,pos,,
+0x22,ShortVec,,pos_prev1,,
+0x26,ShortVec,,pos_prev2,,
+0x2a,ShortVec,,pos_render,,
+0x2e,ShortVec,,pos_render_prev1,,
+0x32,ShortVec,,pos_render_prev2,,
+0x36,ShortVec,,vel_hi_precision,,
+0x3a,int,,mass,,
+0x3c,long,,force,,
+0x40,ShortVec,,size_something,,
+0x44,ShortVec,,size,y,
+0x48,ShortVec,,size_prev1,,
+0x4c,ShortVec,,size_prev2,,
+0x50,ShortVec,,size_something2,y,
+0x54,BeltData,,belt_data,y (just -> part_1/2),
+0x56,ByteVec,,belt_loc,y,"x,y pair of belt slot"
+0x58,uint,,belt_width,y,
+0x5a,Part,2,links_to,y,Linked by ropes or belts
+0x5e,Part,2,links_to_design,,Linked by ropes or belts
+0x62,Part,2,plug_parts,y,
+0x66,RopeData,2,rope_data,"y (just -> part_1/2, ->off1/2, and ->rope_or_pulley_part)",
+0x6a,ByteVec,,rope_loc_1,y,"x,y pair of first rope slot"
+0x6c,ByteVec,,rope_loc_2,y,"x,y pair of second rope slot"
+0x6e,,,,,
+0x70,,,,,
+0x72,ByteVec,,fuse_loc,,"x,y pair of fuse"
+0x74,Part,2,goober_parts,,
+0x78,Part,,interactions,,
+0x7a,int,,,,
+0x7c,int,,,,
+0x7e,byte,,plug_choose,,Is 0 or 1
+0x7f,byte,,goober,,Related to 0x74 and 0x76
+0x80,uint,,num_borders,,
+0x82,BorderPoints,,borders_data,,
+0x84,Part,,bounce_part,,"For Mel, field_0x84 points to a house once Mel lands on a surface with it.."
+0x86,byte,2,bounce_field_0x86,,Values set to 0 or 1
+0x88,uint,,bounce_angle,,
+0x8a,uint,,bounce_border_index,,
+0x8c,int,,original_pos_x,y,
+0x8e,int,,original_pos_y,y,
+0x90,uint,,original_state1,y,Related to state1
+0x92,uint,,original_state2,y,Related to state2
+0x94,uint,,original_flags2,y,Related to flags2
+0x96,uint,,extra1,y,"If rope, the rope length from part1 to the next pulley/part. If Mort, countdown timer"
+0x98,uint,,extra1_prev1,,
+0x9a,uint,,extra1_prev2,,
+0x9c,uint,,extra2,,"If rope, the rope length from part2 to the previous pulley/part"
+0x9e,uint,,extra2_prev1,,
+0xa0,uint,,extra2_prev2,,

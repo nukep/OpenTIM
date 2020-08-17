@@ -1,0 +1,2 @@
+# Ghidra uses Jython, and will generate .class files
+*.class

@@ -1,0 +1,16 @@
+﻿offset,type,count,name
+0x0,Part,,rope_or_pulley_part
+0x2,Part,,part1
+0x4,Part,,part2
+0x6,Part,,original_part1
+0x8,Part,,original_part2
+0xa,byte,,part1_rope_slot
+0xb,byte,,part2_rope_slot
+0xc,byte,,original_part1_rope_slot
+0xd,byte,,original_part2_rope_slot
+0xe,int,,rope_unknown
+0x10,int,,rope_unknown_prev1
+0x12,int,,rope_unknown_prev2
+0x14,ShortVec,2,ends_pos
+0x1c,ShortVec,2,ends_pos_prev1
+0x24,ShortVec,2,ends_pos_prev2

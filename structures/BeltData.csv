@@ -1,0 +1,17 @@
+﻿offset,type,count,name
+0x0,int,,
+0x2,Part,,belt_part
+0x4,Part,,part1
+0x6,Part,,part2
+0x8,ShortVec,,pos1
+0xc,ShortVec,,pos2
+0x10,ShortVec,,pos3
+0x14,ShortVec,,pos4
+0x18,ShortVec,,pos1_prev1
+0x1c,ShortVec,,pos2_prev1
+0x20,ShortVec,,pos3_prev1
+0x24,ShortVec,,pos4_prev1
+0x28,ShortVec,,
+0x2c,ShortVec,,
+0x30,ShortVec,,
+0x34,ShortVec,,
