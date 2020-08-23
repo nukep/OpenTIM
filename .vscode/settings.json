@@ -1,0 +1,8 @@
+{
+    "C_Cpp.default.defines": [
+        "ENABLE_TEST_SUITE"
+    ],
+    "files.associations": {
+        "cmath": "c"
+    }
+}

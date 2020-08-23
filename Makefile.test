@@ -1,0 +1,22 @@
+CFILES   = $(wildcard src/*.c)
+OBJFILES = $(CFILES:.c=.o)
+CSVFILES = $(wildcard structures/*.csv)
+
+RELEASE: tim
+
+tim: $(OBJFILES)
+	mkdir -p build
+	clang -O2 -lm $^ -o $@
+
+%.o: %.c
+	clang -O2 -Wall -Wextra -DENABLE_TEST_SUITE $^ -c -o $@
+
+src/generated/structs.h: $(CSVFILES)
+	python3 scripts/generate-structs.py > $@
+
+generated-structs.js: $(CSVFILES)
+	python3 scripts/generate-structs.py --js > $@
+
+clean:
+	rm -f src/*.o
+	rm -f tim

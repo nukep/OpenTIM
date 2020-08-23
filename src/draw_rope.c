@@ -6,8 +6,16 @@ enum RopeTime {
     CURRENT = 3
 };
 
+static inline s16 approx_hypot(s16 x, s16 y) {
+    if (x < y) {
+        return x/4 + x/8 + y;
+    } else {
+        return y/4 + y/8 + x;
+    }
+}
+
 /* TIMWIN: 10a8:396f */
-sint approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, int first_or_last) {
+s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, int first_or_last) {
     struct RopeData *a, *b;
     int i_a, i_b;
 
@@ -46,29 +54,23 @@ sint approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, i
         return 0;
     }
 
-    sint dx, dy;
-
     switch (time) {
-        case PREV2: dx = abs(a->ends_pos_prev2[i_a].x - b->ends_pos_prev2[i_b].x);
-                    dy = abs(a->ends_pos_prev2[i_a].y - b->ends_pos_prev2[i_b].y);
-                    break;
-        case PREV1: dx = abs(a->ends_pos_prev1[i_a].x - b->ends_pos_prev1[i_b].x);
-                    dy = abs(a->ends_pos_prev1[i_a].y - b->ends_pos_prev1[i_b].y);
-                    break;
-        default:    dx = abs(a->ends_pos      [i_a].x - b->ends_pos      [i_b].x);
-                    dy = abs(a->ends_pos      [i_a].y - b->ends_pos      [i_b].y);
-                    break;
-    }
-
-    if (dx < dy) {
-        return dx/4 + dx/8 + dy;
-    } else {
-        return dy/4 + dy/8 + dx;
+        case PREV2:
+        return approx_hypot(abs(a->ends_pos_prev2[i_a].x - b->ends_pos_prev2[i_b].x),
+                            abs(a->ends_pos_prev2[i_a].y - b->ends_pos_prev2[i_b].y));
+        
+        case PREV1:
+        return approx_hypot(abs(a->ends_pos_prev1[i_a].x - b->ends_pos_prev1[i_b].x),
+                            abs(a->ends_pos_prev1[i_a].y - b->ends_pos_prev1[i_b].y));
+        
+        default:
+        return approx_hypot(abs(a->ends_pos      [i_a].x - b->ends_pos      [i_b].x),
+                            abs(a->ends_pos      [i_a].y - b->ends_pos      [i_b].y));
     }
 }
 
 /* TIMWIN: 10a8:3b05 */
-sint calculate_rope_sag(struct Part *part, struct RopeData *rope_data, enum RopeTime time) {
+s16 calculate_rope_sag(struct Part *part, struct RopeData *rope_data, enum RopeTime time) {
     struct Part *nextpart;
     if (part->type == P_PULLEY) {
         nextpart = part->links_to[0];
@@ -81,7 +83,7 @@ sint calculate_rope_sag(struct Part *part, struct RopeData *rope_data, enum Rope
     rope_part = rope_data->rope_or_pulley_part;
 
     if (rope_data->part1 == part) {
-        sint v;
+        s16 v;
         switch (time) {
             case PREV2: v = rope_part->extra1_prev2; break;
             case PREV1: v = rope_part->extra1_prev1; break;
@@ -96,7 +98,7 @@ sint calculate_rope_sag(struct Part *part, struct RopeData *rope_data, enum Rope
             return 0;
         }
 
-        sint v;
+        s16 v;
         switch (time) {
             case PREV2: v = rope_part->extra2_prev2; break;
             case PREV1: v = rope_part->extra2_prev1; break;

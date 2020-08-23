@@ -5,10 +5,10 @@
 0x6,Flag,,flags1,y,"If 0x10 is set, the part is ephemeral and needs to be cleaned up (e.g. bullet, spawned rope)"
 0x8,Flag,,flags2,,
 0xa,Flag,,flags3,y (except bit 0x10),"flags | 0x40 = locked. Alligator: flag & 0x80: 0=not eaten, 1=eaten."
-0xc,uint,,state1,,
-0xe,uint,,state1_prev1,,
-0x10,uint,,state1_prev2,,
-0x12,uint,,state2,,
+0xc,int,,state1,,There's evidence that it's a signed number.
+0xe,int,,state1_prev1,,
+0x10,int,,state1_prev2,,
+0x12,int,,state2,,There's evidence that it's a signed number.
 0x14,byte,,,,
 0x15,byte,,,,
 0x16,long,,pos_x_hi_precision,,this >> 9 gets transferred to pos.x
