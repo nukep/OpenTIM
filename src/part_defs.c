@@ -331,7 +331,7 @@ void bob_the_fish_break_bowl(struct Part *part) {
 /* TIMWIN: 10d0:07a1 */
 void teeter_totter_helper_1(struct Part *part, bool is_bottom, s16 offset_x) {
     s16 x = part->pos.x;
-    EACH_INTERACION(part, curpart, {
+    EACH_INTERACION(part, curpart) {
         s16 ivar2 = (x + offset_x) - curpart->pos.x;
 
         enum PartType pt = curpart->type;
@@ -385,7 +385,7 @@ void teeter_totter_helper_1(struct Part *part, bool is_bottom, s16 offset_x) {
                 } 
             }
         }
-    })
+    }
 }
 
 /* TIMWIN: 10d0:0627 */
@@ -496,7 +496,7 @@ void run_teeter_totter(struct Part *part) {
 
             stub_1090_1289(part, CHOOSE_MOVING_PART, &dat_1108_2f16[part->state1]);
 
-            EACH_INTERACION(part, curpart, {
+            EACH_INTERACION(part, curpart) {
                 s16 curpart_center_x = curpart->pos.x + curpart->size.x / 2;
                 s16 speed = teeter_totter_helper_get_part_speed(curpart);
                 if (part->state2 == -1) {
@@ -540,7 +540,7 @@ void run_teeter_totter(struct Part *part) {
                     curpart->pos_prev1.y = curpart->pos.y;
                     curpart->pos_y_hi_precision = (curpart->pos.y + 1) * 512 - 1;
                 }
-            })
+            }
         }
         part->state2 = 0;
         part->force = 0;

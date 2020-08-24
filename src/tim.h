@@ -70,13 +70,12 @@ enum GetPartsFlags {
 struct Part* get_first_part(int choice);
 struct Part* next_part_or_fallback(struct Part *part, int choice);
 
-#define EACH_STATIC_PART(varname, body) { struct Part *varname = STATIC_PARTS_START; for (; varname != 0; varname = varname->next) body }
-#define EACH_MOVING_PART(varname, body) { struct Part *varname = MOVING_PARTS_START; for (; varname != 0; varname = varname->next) body }
-#define EACH_STATIC_THEN_MOVING_PART(varname, body) { \
-    struct Part *varname = get_first_part(CHOOSE_STATIC_OR_ELSE_MOVING_PART); \
-    for (; varname != 0; varname = next_part_or_fallback(varname, CHOOSE_MOVING_PART)) body \
-}
-#define EACH_INTERACION(part, varname, body) for (struct Part *varname = part->interactions; varname != 0; varname = varname->interactions) body
+#define EACH_STATIC_PART(varname) for (struct Part *varname = STATIC_PARTS_START; varname != 0; varname = varname->next)
+#define EACH_MOVING_PART(varname) for (struct Part *varname = MOVING_PARTS_START; varname != 0; varname = varname->next)
+#define EACH_STATIC_THEN_MOVING_PART(varname) \
+    for (struct Part *varname = get_first_part(CHOOSE_STATIC_OR_ELSE_MOVING_PART); varname != 0; varname = next_part_or_fallback(varname, CHOOSE_MOVING_PART))
+
+#define EACH_INTERACION(part, varname) for (struct Part *varname = part->interactions; varname != 0; varname = varname->interactions)
 
 #define VEC_EQ(a, b) ((a).x == (b).x && (a).y == (b).y)
 

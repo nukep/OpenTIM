@@ -595,11 +595,11 @@ int should_parts_skip_collision(enum PartType a, enum PartType b) {
 bool bucket_contains(struct Part *bucket, struct Part *contains) {
     if (bucket->type != P_BUCKET) return 0;
 
-    EACH_INTERACION(bucket, curpart, {
+    EACH_INTERACION(bucket, curpart) {
         if (curpart == contains) {
             return 1;
         }
-    })
+    }
     return 0;
 }
 
@@ -655,7 +655,7 @@ int stub_1050_02db(struct Part *part) {
             }
         }
 
-        EACH_STATIC_THEN_MOVING_PART(curpart, {
+        EACH_STATIC_THEN_MOVING_PART(curpart) {
             PART_3a6a = curpart;
             if (!bucket_contains(PART_3a6c, curpart)) {
                 if (PART_3a6c != curpart && PART_3a68 != curpart) {
@@ -688,7 +688,7 @@ int stub_1050_02db(struct Part *part) {
                     }
                 }
             }
-        })
+        }
         PART_3a6a = 0;
 
         if (has_found_angle == 0) {
@@ -750,7 +750,7 @@ void bucket_handle_contained_parts(struct Part *bucket) {
 
     bucket->interactions = 0;
 
-    EACH_MOVING_PART(curpart, {
+    EACH_MOVING_PART(curpart) {
         if (bucket == curpart) continue;
         if (ANY_FLAGS(curpart->flags2, 0x2000)) continue;
         if (curpart->type == P_CAGE) continue;
@@ -774,7 +774,7 @@ void bucket_handle_contained_parts(struct Part *bucket) {
 
             curpart->extra1 = bucket->pos.y + 20;
         }
-    });
+    }
 }
 
 /* TIMWIN: 10a8:45f8 */
@@ -788,9 +788,9 @@ void bucket_add_mass(struct Part *bucket, struct Part *part) {
 
 /* TIMWIN: 10a8:45c6 */
 void bucket_add_mass_of_contained(struct Part *bucket) {
-    EACH_INTERACION(bucket, curpart, {
+    EACH_INTERACION(bucket, curpart) {
         bucket_add_mass(bucket, curpart);
-    })
+    }
 }
 
 /* TIMWIN: 1090:15c8 */
@@ -801,13 +801,13 @@ void bucket_move_contained(struct Part *bucket) {
     s16 dy = bucket->pos.y - bucket->pos_prev1.y;
     if ((dx != 0) || (dy != 0)) {
         // the bucket moved
-        EACH_INTERACION(bucket, part, {
+        EACH_INTERACION(bucket, part) {
             part->pos.x += dx;
             part->pos.y += dy;
             part_set_size_and_pos_render(part);
             part->pos_x_hi_precision = part->pos.x * 512;
             part->pos_y_hi_precision = part->pos.y * 512;
-        })
+        }
     }
 }
 
@@ -850,14 +850,12 @@ void stub_10a8_36f0(struct Part *part) {
 
 /* TIMWIN: 1080:1464 */
 void advance_parts() {
-    struct Part *part;
-
-    EACH_STATIC_PART(part, {
+    EACH_STATIC_PART(part) {
         part->flags2 &= 0xf9bf;
-    })
+    }
 
     for (struct Llama *p = LLAMA; p != 0; p = p->next) {
-        part = p->part;
+        struct Part *part = p->part;
         if (NO_FLAGS(part->flags2, 0x0040)) {
             part_run(part);
         }
@@ -865,67 +863,67 @@ void advance_parts() {
 
     stub_10a8_44d5();
 
-    EACH_STATIC_PART(part, {
+    EACH_STATIC_PART(part) {
         if (ANY_FLAGS(part->flags2, 0x0800) && NO_FLAGS(part->flags2, 0x2000 | 0x0040)) {
             part_run(part);
         }
-    })
+    }
 
-    EACH_STATIC_PART(part, {
+    EACH_STATIC_PART(part) {
         if (part->type == P_GEAR && NO_FLAGS(part->flags2, 0x2000 | 0x0040)) {
             part_run(part);
         }
-    })
+    }
 
-    EACH_STATIC_PART(part, {
+    EACH_STATIC_PART(part) {
         if (NO_FLAGS(part->flags2, 0x2840)) {
             part_run(part);
         }
-    })
+    }
 
-    EACH_MOVING_PART(part, {
+    EACH_MOVING_PART(part) {
         if (part->type == P_TEAPOT) {
             part_run(part);
         }
-    })
+    }
 
-    EACH_MOVING_PART(part, {
+    EACH_MOVING_PART(part) {
         if (NO_FLAGS(part->flags2, 0x2000)) {
             part_update_vel_and_force(part);
             part->force = (s32)(abs(part->vel_hi_precision.x) + abs(part->vel_hi_precision.y)) * (s32)part->mass;
         }
         part->mass = part_mass(part->type);
         part->flags3 &= 0xffef;
-    })
+    }
 
-    EACH_MOVING_PART(part, {
+    EACH_MOVING_PART(part) {
         if (part->type != P_BUCKET) {
             stub_1080_1777(part);
         }
-    })
+    }
 
-    EACH_MOVING_PART(part, {
+    EACH_MOVING_PART(part) {
         if (part->type == P_BUCKET) {
             bucket_handle_contained_parts(part);
             bucket_add_mass_of_contained(part);
         }
-    })
+    }
 
-    EACH_MOVING_PART(part, {
+    EACH_MOVING_PART(part) {
         if (part->type == P_BUCKET) {
             bucket_handle_contained_parts(part);
             stub_1080_1777(part);
         }
-    })
+    }
 
-    EACH_MOVING_PART(part, {
+    EACH_MOVING_PART(part) {
         if (part->type == P_BUCKET) {
             bucket_handle_contained_parts(part);
             bucket_move_contained(part);
         }
-    })
+    }
 
-    EACH_MOVING_PART(part, {
+    EACH_MOVING_PART(part) {
         if (NO_FLAGS(part->flags1, 0x0008) && NO_FLAGS(part->flags2, 0x2000)) {
             if (ANY_FLAGS(part->flags1, 0x0004 | 0x0002) && part->type == P_MEL_SCHLEMMING) {
                 MEL_JUMPY(part);
@@ -948,9 +946,9 @@ void advance_parts() {
                 }
             }
         }
-    })
+    }
 
-    EACH_STATIC_THEN_MOVING_PART(part, {
+    EACH_STATIC_THEN_MOVING_PART(part) {
         if (ANY_FLAGS(part->flags2, 0x2000)) continue;
 
         if (VEC_EQ(part->pos, part->pos_prev1) && part->state1 == part->state1_prev1) {
@@ -969,5 +967,5 @@ void advance_parts() {
         } else {
             stub_10a8_36f0(part);
         }
-    })
+    }
 }
