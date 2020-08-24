@@ -751,6 +751,16 @@ int part_bounce(enum PartType type, struct Part *part) {
     return def->bounce_func(part);
 }
 
+s16 part_density(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_density - def not found");
+        return 0;
+    }
+
+    return def->density;
+}
+
 s16 part_mass(enum PartType type) {
     struct PartDef *def = part_def(type);
     if (!def) {
@@ -763,36 +773,36 @@ s16 part_mass(enum PartType type) {
 
 /* Partial from TIMWIN: 1090:0000 */
 // Returns a value from 0 to 1024 inclusive.
-static inline u16 calculate_adj_grav() {
-    if (GRAVITY < 140) {
-        return GRAVITY/4 + 1;
-    } else if (GRAVITY > 278) {
-        return GRAVITY*2;
+static inline u16 calculate_adj_grav(u16 gravity) {
+    if (gravity < 140) {
+        return gravity/4 + 1;
+    } else if (gravity > 278) {
+        return gravity*2;
     } else {
-        return GRAVITY;
+        return gravity;
     }
 }
 
 /* Partial from TIMWIN: 1090:0000 */
 // Returns a value from 0 to 2048 inclusive.
-static inline u16 calculate_adj_air() {
+static inline u16 calculate_adj_air(u16 air_pressure) {
     u16 adj_air;
-    if (AIR_PRESSURE < 70) {
-        return AIR_PRESSURE/2;
+    if (air_pressure < 70) {
+        return air_pressure/2;
     } else {
-        return AIR_PRESSURE*16;
+        return air_pressure*16;
     }
 }
 
 /* Partial from TIMWIN: 1090:0000 */
-s16 EXPORT part_acceleration_from_density(s16 density) {
-    u16 adj_air = calculate_adj_air();
+static inline s16 calculate_acceleration(u16 gravity, u16 air_pressure, s16 density) {
+    u16 adj_air = calculate_adj_air(air_pressure);
 
     if (density == adj_air) {
         return 0;
     }
 
-    u16 adj_grav = calculate_adj_grav();
+    u16 adj_grav = calculate_adj_grav(gravity);
 
     if (density > adj_air) {
         return +(adj_grav - (((s32)adj_air * (s32)adj_grav) / density));
@@ -800,6 +810,212 @@ s16 EXPORT part_acceleration_from_density(s16 density) {
         return -(adj_grav - (((s32)density * (s32)adj_grav) / adj_air));
     }
 }
+
+/* Partial from TIMWIN: 1090:0000 */
+static inline s16 calculate_terminal_velocity(s16 air_pressure) {
+    u16 adj_air = calculate_adj_air(air_pressure);
+    // If max of adj_air is 2048 (0x0800), then this ranges from 0x1E00 to 0x2600 inclusive.
+    return 0x2600 - adj_air;
+}
+
+#ifdef ENABLE_TEST_SUITE
+
+/* The following fixtures were taken by inspecting the memory of the Parts table (segment 31) from the original TIMWIN.
+   The pairs are: { density, acceleration }
+*/
+
+static const s16 EARTH_TEST_FIXTURE[21][2] = {
+    {     0,  -272 },
+    {     9,  -198 },
+    {    11,  -182 },
+    {   100,   183 },
+    {  1132,   265 },
+    {  1300,   266 },
+    {  1322,   266 },
+    {  1500,   267 },
+    {  1510,   267 },
+    {  1600,   267 },
+    {  1800,   268 },
+    {  1888,   268 },
+    {  2000,   268 },
+    {  2400,   269 },
+    {  2832,   269 },
+    {  3776,   270 },
+    {  4153,   270 },
+    {  7552,   271 },
+    { 14726,   272 },
+    { 18000,   272 },
+    { 21428,   272 },
+};
+
+static const s16 S2_TEST_FIXTURE[21][2] = {
+    {     0,    -1 },
+    {     9,    -1 },
+    {    11,    -1 },
+    {   100,     1 },
+    {  1132,     1 },
+    {  1300,     1 },
+    {  1322,     1 },
+    {  1500,     1 },
+    {  1510,     1 },
+    {  1600,     1 },
+    {  1800,     1 },
+    {  1888,     1 },
+    {  2000,     1 },
+    {  2400,     1 },
+    {  2832,     1 },
+    {  3776,     1 },
+    {  4153,     1 },
+    {  7552,     1 },
+    { 14726,     1 },
+    { 18000,     1 },
+    { 21428,     1 },
+};
+
+static const s16 S3_TEST_FIXTURE[21][2] = {
+    {     0, -1024 },
+    {     9,  -745 },
+    {    11,  -683 },
+    {   100,   687 },
+    {  1132,   995 },
+    {  1300,   999 },
+    {  1322,   999 },
+    {  1500,  1002 },
+    {  1510,  1002 },
+    {  1600,  1003 },
+    {  1800,  1006 },
+    {  1888,  1007 },
+    {  2000,  1008 },
+    {  2400,  1010 },
+    {  2832,  1013 },
+    {  3776,  1016 },
+    {  4153,  1016 },
+    {  7552,  1020 },
+    { 14726,  1022 },
+    { 18000,  1023 },
+    { 21428,  1023 },
+};
+
+static const s16 S4_TEST_FIXTURE[21][2] = {
+    {     0,     0 },
+    {     9,   272 },
+    {    11,   272 },
+    {   100,   272 },
+    {  1132,   272 },
+    {  1300,   272 },
+    {  1322,   272 },
+    {  1500,   272 },
+    {  1510,   272 },
+    {  1600,   272 },
+    {  1800,   272 },
+    {  1888,   272 },
+    {  2000,   272 },
+    {  2400,   272 },
+    {  2832,   272 },
+    {  3776,   272 },
+    {  4153,   272 },
+    {  7552,   272 },
+    { 14726,   272 },
+    { 18000,   272 },
+    { 21428,   272 },
+};
+
+static const s16 S5_TEST_FIXTURE[21][2] = {
+    {     0,  -272 },
+    {     9,  -271 },
+    {    11,  -271 },
+    {   100,  -259 },
+    {  1132,  -122 },
+    {  1300,  -100 },
+    {  1322,   -97 },
+    {  1500,   -73 },
+    {  1510,   -72 },
+    {  1600,   -60 },
+    {  1800,   -33 },
+    {  1888,   -22 },
+    {  2000,    -7 },
+    {  2400,    40 },
+    {  2832,    76 },
+    {  3776,   125 },
+    {  4153,   138 },
+    {  7552,   199 },
+    { 14726,   235 },
+    { 18000,   242 },
+    { 21428,   247 },
+};
+
+static const s16 S6_TEST_FIXTURE[21][2] = {
+    {     0,     0 },
+    {     9,     1 },
+    {    11,     1 },
+    {   100,     1 },
+    {  1132,     1 },
+    {  1300,     1 },
+    {  1322,     1 },
+    {  1500,     1 },
+    {  1510,     1 },
+    {  1600,     1 },
+    {  1800,     1 },
+    {  1888,     1 },
+    {  2000,     1 },
+    {  2400,     1 },
+    {  2832,     1 },
+    {  3776,     1 },
+    {  4153,     1 },
+    {  7552,     1 },
+    { 14726,     1 },
+    { 18000,     1 },
+    { 21428,     1 },
+};
+
+static const s16 S7_TEST_FIXTURE[21][2] = {
+    {     0, -1024 },
+    {     9, -1020 },
+    {    11, -1019 },
+    {   100,  -974 },
+    {  1132,  -458 },
+    {  1300,  -374 },
+    {  1322,  -363 },
+    {  1500,  -274 },
+    {  1510,  -269 },
+    {  1600,  -224 },
+    {  1800,  -124 },
+    {  1888,   -80 },
+    {  2000,   -24 },
+    {  2400,   151 },
+    {  2832,   284 },
+    {  3776,   469 },
+    {  4153,   520 },
+    {  7552,   747 },
+    { 14726,   882 },
+    { 18000,   908 },
+    { 21428,   927 },
+};
+#endif
+
+#define T(description, gravity, air_pressure, expected_terminal_velocity, fixture) \
+    TEST("[" description "] gravity=" #gravity ", air=" #air_pressure ", expected terminal velocity=" #expected_terminal_velocity, { \
+    for (int i = 0; i < 21; i++) { \
+        s16 density      = fixture[i][0]; \
+        s16 acceleration = fixture[i][1]; \
+        ASSERT_EQ(calculate_acceleration(gravity, air_pressure, density), acceleration); \
+    } \
+\
+    ASSERT_EQ(calculate_terminal_velocity(air_pressure), expected_terminal_velocity); \
+})
+
+TEST_SUITE(acceleration_and_terminal_velocity, {
+    // description,             gravity, air, expected-term-vel, fixture
+    T("Earth",                  272,     67,  9695,              EARTH_TEST_FIXTURE)
+    T("Min gravity, earth air", 0,       67,  9695,              S2_TEST_FIXTURE)
+    T("Max gravity, earth air", 512,     67,  9695,              S3_TEST_FIXTURE)
+    T("Earth gravity, min air", 272,     0,   9728,              S4_TEST_FIXTURE)
+    T("Earth gravity, max air", 272,     128, 7680,              S5_TEST_FIXTURE)
+    T("Min gravity, min air",   0,       0,   9728,              S6_TEST_FIXTURE)
+    T("Max gravity, max air",   512,     128, 7680,              S7_TEST_FIXTURE)
+})
+
+#undef T
 
 /* Partial from TIMWIN: 1090:0000 */
 // Was pre-calculated in TIM each time the air pressure or gravity changed. Now we just recalculate it each time.
@@ -812,13 +1028,7 @@ s16 EXPORT part_acceleration(enum PartType type) {
         return 0;
     }
 
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_acceleration - def not found");
-        return 0;
-    }
-
-    return part_acceleration_from_density(def->density);
+    return calculate_acceleration(GRAVITY, AIR_PRESSURE, part_density(type));
 }
 
 /* Partial from TIMWIN: 1090:0000 */
@@ -829,9 +1039,7 @@ s16 EXPORT part_terminal_velocity(enum PartType type) {
         return 0x3000;
     }
 
-    u16 adj_air = calculate_adj_air();
-    // If max of adj_air is 2048 (0x0800), then this ranges from 0x1E00 to 0x2600 inclusive.
-    return 0x2600 - adj_air;
+    return calculate_terminal_velocity(AIR_PRESSURE);
 }
 
 struct Data31Field0x14** part_data31_field_0x14(enum PartType type) {

@@ -190,6 +190,11 @@ struct Line {
 
 void play_sound(int id);
 
+static const u16 DEFAULT_GRAVITY = 272;
+static const u16 DEFAULT_AIR_PRESSURE = 67;
+#define MAX_GRAVITY 512
+#define MAX_AIR_PRESSURE 128
+
 #include "globals.h"
 
 #endif

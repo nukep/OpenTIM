@@ -7,6 +7,7 @@ int main(int argc, char *argv[]) {
 
     RUNTEST(arctan);
     RUNTEST(draw_rope);
+    RUNTEST(acceleration_and_terminal_velocity);
 
     if (passed_overall) {
         printf("All tests passed!\n");
