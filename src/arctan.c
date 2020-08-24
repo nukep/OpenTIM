@@ -46,17 +46,19 @@ u16 arctan(s32 dx, s32 dy) {
     return (val - 0x400) * 16;
 }
 
+#if ENABLE_TEST_SUITE
+
 // unit-test helper
 #define T(x, y, expected) ASSERT_EQ(arctan(x*i, y*i), expected)
 
 // #include <math.h>
 
-TEST_SUITE(arctan, {
-    TEST("0, 0", {
+TEST_SUITE(arctan) {
+    TEST("0, 0") {
         ASSERT_EQ(arctan(0, 0), 0);
-    })
+    }
 
-    TEST("Straight and diagonal lines", {
+    TEST("Straight and diagonal lines") {
         for (s32 i = 1; i <= 10000; i++) {
             T( 0,  1, 0x0000);
             T(-1,  1, 0x2000);
@@ -67,9 +69,9 @@ TEST_SUITE(arctan, {
             T( 1,  0, 0xC000);
             T( 1,  1, 0xE000);
         }
-    })
+    }
 
-    TEST("30-degree intervals", {
+    TEST("30-degree intervals") {
         for (s32 i = 1; i <= 10000; i++) {
             T(-1,  2, 0x12E0);
             T(-2,  1, 0x2D20);
@@ -80,9 +82,9 @@ TEST_SUITE(arctan, {
             T( 2,  1, 0xD2E0);
             T( 1,  2, 0xED20);
         }
-    })
+    }
 
-    TEST("Sample of random coordinates", {
+    TEST("Sample of random coordinates") {
         // arctan (ours) and atan2 (C) are both clockwise, but their "0" is different.
         // arctan(): x=0,y=1 (down) is 0 degrees
         // atan2():  x=1,y=0 (right) is 0 degrees
@@ -135,7 +137,8 @@ TEST_SUITE(arctan, {
         ASSERT_EQ(arctan(  9300, -31215),  35776); // Accurate:  35788 (error = -12, -0.03%, -0.07 deg)
         ASSERT_EQ(arctan(-15346,   7554),  11616); // Accurate:  11613 (error =  +3, +0.03%, +0.02 deg)
         ASSERT_EQ(arctan( -1932, -31167),  32144); // Accurate:  32122 (error = +22, +0.07%, +0.12 deg)
-    })
-})
+    }
+}
 
 #undef T
+#endif

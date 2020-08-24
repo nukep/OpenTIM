@@ -109,7 +109,7 @@ s16 calculate_rope_sag(struct Part *part, struct RopeData *rope_data, enum RopeT
     }
 }
 
-#ifdef ENABLE_TEST_SUITE
+#if ENABLE_TEST_SUITE
 #if 0
 #include <math.h>
 
@@ -131,18 +131,17 @@ void generate_hypot_samples(int n, int max_val) {
     }
 }
 #endif
-#endif
 
-TEST_SUITE(draw_rope, {
-    TEST("approx_hypot", {
+TEST_SUITE(draw_rope) {
+    TEST("approx_hypot") {
         ASSERT_EQ(approx_hypot(0, 0), 0);
         ASSERT_EQ(approx_hypot(256, 256), 352);
 
         // The largest hypoteneuse of equal arms possible with this function.
         ASSERT_EQ(approx_hypot(23831, 23831), 32766);
-    })
+    }
 
-    TEST("approx_hypot, random samples", {
+    TEST("approx_hypot, random samples") {
         // generate_hypot_samples(16, 64);
         // generate_hypot_samples(8, 512);
         // generate_hypot_samples(8, 32767);
@@ -180,5 +179,6 @@ TEST_SUITE(draw_rope, {
         ASSERT_EQ(approx_hypot(10316,  5954), 12548); // Accurate: 11910.92 (error = +5.35%)
         ASSERT_EQ(approx_hypot(17783,  9170), 21221); // Accurate: 20008.10 (error = +6.06%)
         ASSERT_EQ(approx_hypot(13844, 11637), 18207); // Accurate: 18085.25 (error = +0.67%)
-    })
-})
+    }
+}
+#endif

@@ -818,7 +818,7 @@ static inline s16 calculate_terminal_velocity(s16 air_pressure) {
     return 0x2600 - adj_air;
 }
 
-#ifdef ENABLE_TEST_SUITE
+#if ENABLE_TEST_SUITE
 
 /* The following fixtures were taken by inspecting the memory of the Parts table (segment 31) from the original TIMWIN.
    The pairs are: { density, acceleration }
@@ -991,10 +991,9 @@ static const s16 S7_TEST_FIXTURE[21][2] = {
     { 18000,   908 },
     { 21428,   927 },
 };
-#endif
 
 #define T(description, gravity, air_pressure, expected_terminal_velocity, fixture) \
-    TEST("[" description "] gravity=" #gravity ", air=" #air_pressure ", expected terminal velocity=" #expected_terminal_velocity, { \
+TEST("[" description "] gravity=" #gravity ", air=" #air_pressure ", expected terminal velocity=" #expected_terminal_velocity) { \
     for (int i = 0; i < 21; i++) { \
         s16 density      = fixture[i][0]; \
         s16 acceleration = fixture[i][1]; \
@@ -1002,9 +1001,9 @@ static const s16 S7_TEST_FIXTURE[21][2] = {
     } \
 \
     ASSERT_EQ(calculate_terminal_velocity(air_pressure), expected_terminal_velocity); \
-})
+}
 
-TEST_SUITE(acceleration_and_terminal_velocity, {
+TEST_SUITE(acceleration_and_terminal_velocity) {
     // description,             gravity, air, expected-term-vel, fixture
     T("Earth",                  272,     67,  9695,              EARTH_TEST_FIXTURE)
     T("Min gravity, earth air", 0,       67,  9695,              S2_TEST_FIXTURE)
@@ -1013,9 +1012,10 @@ TEST_SUITE(acceleration_and_terminal_velocity, {
     T("Earth gravity, max air", 272,     128, 7680,              S5_TEST_FIXTURE)
     T("Min gravity, min air",   0,       0,   9728,              S6_TEST_FIXTURE)
     T("Max gravity, max air",   512,     128, 7680,              S7_TEST_FIXTURE)
-})
+}
 
 #undef T
+#endif
 
 /* Partial from TIMWIN: 1090:0000 */
 // Was pre-calculated in TIM each time the air pressure or gravity changed. Now we just recalculate it each time.

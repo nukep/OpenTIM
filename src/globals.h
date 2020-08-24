@@ -4,9 +4,9 @@
 // * If we don't know what it does, give it a codename. It's easier to remember (and more fun) than a number.
 
 #ifdef TIM_GLOBALS_C
-#   define GLOBAL(decl, init) decl = init;
+#   define GLOBAL(declaration, init) declaration = init;
 #else
-#   define GLOBAL(decl, init) extern decl;
+#   define GLOBAL(declaration, init) extern declaration;
 #endif
 
 // The original game has an abundance of short-lived, temporary global variables (only used across a few function calls).
@@ -74,7 +74,7 @@ GLOBAL(struct Llama *LLAMA, 0)
 GLOBAL(u16 RESIZE_GOPHER, 0);
 
 /* TIMWIN: 1108:3bfd */
-GLOBAL(enum LevelState LEVEL_STATE, 0)
+GLOBAL(enum LevelState LEVEL_STATE, OBJECTIVE_SCREEN)
 
 GLOBAL(struct Part *STATIC_PARTS_START, 0)
 GLOBAL(struct Part *MOVING_PARTS_START, 0)
