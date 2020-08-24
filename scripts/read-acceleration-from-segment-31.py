@@ -1,7 +1,8 @@
 # Used to generate the unit-test fixtures for calculating acceleration and terminal velocity
 #
 # 1. Adjust gravity and air pressure in the game's control panel. The table in segment 31 will automatically update.
-# 2. Put DOSBoxX into debug mode and dump segment 31: memdumpbin XXXX:0000 0EF4
+# 2. Put DOSBoxX into debug mode and dump segment 31. Run the command:
+#        memdumpbin XXXX:0000 0EF4
 #    Note: XXXX is the selector for segment 31 in hexadecimal, which you must find out.
 # 3. Run this script.
 

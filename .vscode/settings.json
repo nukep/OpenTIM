@@ -4,5 +4,6 @@
     ],
     "files.associations": {
         "cmath": "c"
-    }
+    },
+    "files.eol": "\n"
 }
