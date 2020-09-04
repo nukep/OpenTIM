@@ -34,8 +34,7 @@
 0x5e,Part,2,links_to_design,,Linked by ropes or belts
 0x62,Part,2,plug_parts,y,
 0x66,RopeData,2,rope_data,"y (just -> part_1/2, ->off1/2, and ->rope_or_pulley_part)",
-0x6a,ByteVec,,rope_loc_1,y,"x,y pair of first rope slot"
-0x6c,ByteVec,,rope_loc_2,y,"x,y pair of second rope slot"
+0x6a,ByteVec,2,rope_loc,y,"x,y pair of rope slots"
 0x6e,,,,,
 0x70,,,,,
 0x72,ByteVec,,fuse_loc,,"x,y pair of fuse"
@@ -56,9 +55,9 @@
 0x90,uint,,original_state1,y,Related to state1
 0x92,uint,,original_state2,y,Related to state2
 0x94,uint,,original_flags2,y,Related to flags2
-0x96,uint,,extra1,y,"If rope, the rope length from part1 to the next pulley/part. If Mort, countdown timer"
-0x98,uint,,extra1_prev1,,
-0x9a,uint,,extra1_prev2,,
-0x9c,uint,,extra2,,"If rope, the rope length from part2 to the previous pulley/part"
-0x9e,uint,,extra2_prev1,,
-0xa0,uint,,extra2_prev2,,
+0x96,int,,extra1,y,"If rope, the rope length from part1 to the next pulley/part. If Mort, countdown timer. There's evidence this is signed."
+0x98,int,,extra1_prev1,,
+0x9a,int,,extra1_prev2,,
+0x9c,int,,extra2,,"If rope, the rope length from part2 to the previous pulley/part. There's evidence this is signed."
+0x9e,int,,extra2_prev1,,
+0xa0,int,,extra2_prev2,,

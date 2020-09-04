@@ -67,8 +67,11 @@ GLOBAL(struct Part *GOOBER_ARRAY[6], { 0 })
 /* Codename. TIMWIN: 1108:0c5e */
 GLOBAL(void (*MEL_JUMPY)(struct Part *), 0)
 
+/* Codename. TIMWIN: 1108:3be6 */
+GLOBAL(struct Llama *LLAMA_1, 0)
+
 /* Codename. TIMWIN: 1108:3be8 */
-GLOBAL(struct Llama *LLAMA, 0)
+GLOBAL(struct Llama *LLAMA_2, 0)
 
 /* Codename. TIMWIN: 1108:3bfb */
 GLOBAL(u16 RESIZE_GOPHER, 0);

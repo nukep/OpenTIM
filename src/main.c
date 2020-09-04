@@ -4,6 +4,7 @@
 #include "tim.h"
 
 u16 arctan(s32 dx, s32 dy);
+u16 rope_calculate_flags(struct RopeData *rope, int param_2, int param_3);
 
 /* Partial from TIMWIN: 10a8:1e46 */
 void insert_part_into_static_parts(struct Part *part) {
@@ -149,22 +150,27 @@ size_t EXPORT debug_part_size() {
     return sizeof(struct Part);
 }
 
-void stub_10a8_44d5() {
-    // UNIMPLEMENTED
-    // TODO:
-    /*
-    if (_g_1108_3be8 == 0) return;
-
-    void *DI = _g_1108_3be8;
-    void *SI = *_g_1108_3be8;
-    while (SI != 0) {
-        DI = SI;
-        SI = *SI;
+/* TIMWIN: 10a8:1e18 */
+void remove_part_from_linked_list(struct Part *part) {
+    part->prev->next = part->next;
+    if (part->next) {
+        part->next->prev = part->prev;
     }
-    *DI = _g_1108_3be6;
-    _g_1108_3be6 = _g_1108_3be8;
-    _g_1108_3be8 = 0;
-    */
+}
+
+/* TIMWIN: 10a8:44d5 */
+static inline void move_llama2_to_beginning_of_llama1() {
+    if (!LLAMA_2) return;
+
+    struct Llama *last_llama_2 = LLAMA_2;
+
+    for (struct Llama *cur = LLAMA_2->next; cur != 0; cur = cur->next) {
+        last_llama_2 = cur;
+    }
+
+    last_llama_2->next = LLAMA_1;
+    LLAMA_1 = LLAMA_2;
+    LLAMA_2 = 0;
 }
 
 /* TIMWIN: 10a8:25d9 */
@@ -290,6 +296,196 @@ u16 quadrant_from_angle(u16 angle) {
 /* TIMWIN: 1050:01e7 */
 u16 part_get_movement_delta_angle(struct Part *part) {
     return arctan(-(part->pos.x - part->pos_prev1.x), part->pos.y - part->pos_prev1.y);
+}
+
+/* TIMWIN: 10a8:176f */
+void stub_10a8_176f(struct RopeData *rope) {
+    if (!rope->part1) return;
+
+    struct Part *part1 = rope->part1;
+    rope->ends_pos[0].x = part1->pos_render.x + part1->rope_loc[rope->part1_rope_slot].x;
+    rope->ends_pos[0].y = part1->pos_render.y + part1->rope_loc[rope->part1_rope_slot].y;
+
+    if (rope->part2) {
+        struct Part *part2 = rope->part2;
+        rope->ends_pos[1].x = part2->pos_render.x + part2->rope_loc[rope->part2_rope_slot].x;
+        rope->ends_pos[1].y = part2->pos_render.y + part2->rope_loc[rope->part2_rope_slot].y;
+    }
+
+    struct Part *part = part1->links_to[rope->part1_rope_slot];
+    while (part && part->type == P_PULLEY) {
+        for (int i = 0; i < 2; i++) {
+            part->rope_data[0]->ends_pos[i].x = part->pos.x + part->rope_loc[i].x;
+            part->rope_data[0]->ends_pos[i].y = part->pos.y + part->rope_loc[i].y;
+        }
+        part = part->links_to[0];
+    }
+
+    if (LEVEL_STATE != SIMULATION_MODE) {
+        rope->rope_or_pulley_part->extra1 = approximate_hypot_of_rope(rope, ROPETIME_CURRENT, ROPE_FROM_FIRST);
+        rope->rope_or_pulley_part->extra2 = approximate_hypot_of_rope(rope, ROPETIME_CURRENT, ROPE_FROM_LAST);
+    }
+}
+
+/* TIMWIN: 10a8:166a */
+void belt_set_four_pos(struct BeltData *belt) {
+    struct Part *part1 = belt->part1;
+    struct Part *part2 = belt->part2;
+
+    belt->pos1.x = part1->pos_render.x + part1->belt_loc.x;
+    belt->pos1.y = part1->pos_render.y + part1->belt_loc.y;
+
+    belt->pos2.x = part2->pos_render.x + part2->belt_loc.x;
+    belt->pos2.y = part2->pos_render.y + part2->belt_loc.y;
+
+    s16 delta_x = abs(belt->pos1.x - belt->pos2.x);
+    s16 delta_y = abs(belt->pos1.y - belt->pos2.y);
+
+    s16 pos1_x_off, pos1_y_off;
+    s16 pos2_x_off, pos2_y_off;
+    s16 pos3_x_off, pos3_y_off;
+    s16 pos4_x_off, pos4_y_off;
+
+    if (delta_x < delta_y) {
+        pos2_x_off = 0;
+        pos1_x_off = 0;
+        pos3_x_off = part1->belt_width;
+        pos3_y_off = part1->belt_width / 2;
+        pos4_x_off = part2->belt_width;
+        pos4_y_off = part2->belt_width / 2;
+        pos2_y_off = part2->belt_width / 2;
+        pos1_y_off = part1->belt_width / 2;
+    } else {
+        pos2_y_off = 0;
+        pos1_y_off = 0;
+        pos3_y_off = part1->belt_width;
+        pos3_x_off = part1->belt_width / 2;
+        pos4_y_off = part2->belt_width;
+        pos4_x_off = part2->belt_width / 2;
+        pos2_x_off = part2->belt_width / 2;
+        pos1_x_off = part1->belt_width / 2;
+    }
+
+    belt->pos3.x = belt->pos1.x + pos3_x_off;
+    belt->pos3.y = belt->pos1.y + pos3_y_off;
+    belt->pos4.x = belt->pos2.x + pos4_x_off;
+    belt->pos4.y = belt->pos2.y + pos4_y_off;
+    belt->pos1.x += pos1_x_off;
+    belt->pos1.y += pos1_y_off;
+    belt->pos2.x += pos2_x_off;
+    belt->pos2.y += pos2_y_off;
+}
+
+/* TIMWIN: 10a8:4794 */
+void restore_parts_state_from_design() {
+    // Not using EACH_STATIC_THEN_MOVING_PART macro, because I'm unsure of the side-effects of the loop body and next_part_or_fallback.
+    // Might be okay, but not sure yet.
+    for (struct Part *part = get_first_part(CHOOSE_STATIC_OR_ELSE_MOVING_PART); part != 0; ) {
+        struct Part *nextpart = next_part_or_fallback(part, CHOOSE_MOVING_PART);
+
+        if (NO_FLAGS(part->flags1, 0x0010)) {
+            part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
+            part->flags2 = part->original_flags2;
+            part->flags3 &= ~(0x0400 | 0x0200 | 0x0100 | 0x0080 | 0x0010);
+
+            part->pos_prev2.x = part->original_pos_x;
+            part->pos_prev1.x = part->original_pos_x;
+            part->pos.x       = part->original_pos_x;
+            part->pos_prev2.y = part->original_pos_y;
+            part->pos_prev1.y = part->original_pos_y;
+            part->pos.y       = part->original_pos_y;
+
+            part->pos_x_hi_precision = part->pos.x * 512;
+            part->pos_y_hi_precision = part->pos.y * 512;
+
+            part->state1       = part->original_state1;
+            part->state1_prev1 = part->original_state1;
+            part->state1_prev2 = part->original_state1;
+
+            part_set_size(part);
+            part->size_something = part->size;
+
+            part_set_size_and_pos_render(part);
+            part->pos_render_prev1 = part->pos_render;
+            part->pos_render_prev2 = part->pos_render;
+            part->size_prev1 = part->size;
+            part->size_prev2 = part->size;
+            part->mass = part_mass(part->type);
+            part->bounce_part = 0;
+
+            part->state2 = part->original_state2;
+            part->vel_hi_precision.x = 0;
+            part->vel_hi_precision.y = 0;
+            part->extra1_prev2 = 0;
+            part->extra1_prev1 = 0;
+            part->extra1       = 0;
+            part->extra2_prev2 = 0;
+            part->extra2_prev1 = 0;
+            part->extra2       = 0;
+
+            if (part->type != P_GEAR) {
+                for (int i = 0; i < 2; i++) {
+                    part->links_to[i] = part->links_to_design[i];
+                }
+            }
+
+            part_reset(part);
+            part->original_state1 = part->state1;
+        } else {
+            remove_part_from_linked_list(part);
+            part_free(part);
+        }
+
+        part = nextpart;
+    }
+
+    EACH_STATIC_THEN_MOVING_PART(part) {
+        if (part->type == P_BELT) {
+            belt_set_four_pos(part->belt_data);
+        } else if (part->type == P_ROPE) {
+            struct RopeData *rope = part->rope_data[0];
+            rope->part1 = rope->original_part1;
+            rope->part2 = rope->original_part2;
+            
+            rope->part1_rope_slot = rope->original_part1_rope_slot;
+            rope->part2_rope_slot = rope->original_part2_rope_slot;
+
+            rope->part1->rope_data[rope->part1_rope_slot] = rope;
+            rope->part2->rope_data[rope->part2_rope_slot] = rope;
+
+            struct Part *curpart = rope->part1;
+            struct Part *nextpart = curpart->links_to[rope->part1_rope_slot];
+            while (curpart) {
+                if (curpart->type == P_PULLEY) {
+                    curpart->rope_data[1] = rope;
+                }
+
+                if (rope->part2 == curpart) {
+                    curpart = 0;
+                } else {
+                    curpart = nextpart;
+                    nextpart = nextpart->links_to[0];
+                }
+            }
+
+            stub_10a8_176f(rope);
+
+            s16 v;
+            v = approximate_hypot_of_rope(rope, ROPETIME_CURRENT, ROPE_FROM_FIRST);
+            part->extra1_prev2 = v;
+            part->extra1_prev1 = v;
+            part->extra1       = v;
+
+            v = approximate_hypot_of_rope(rope, ROPETIME_CURRENT, ROPE_FROM_LAST);
+            part->extra2_prev2 = v;
+            part->extra2_prev1 = v;
+            part->extra2       = v;
+
+            rope->rope_unknown_prev2 = 0;
+            rope->rope_unknown_prev1 = 0;
+            rope->rope_unknown       = 0;
+        }
+    }
 }
 
 /* TIMWIN: 1050:001e */
@@ -427,6 +623,8 @@ void stub_1050_025e(struct Line *line, s16 x, byte *bounce_field_0x86) {
     }
 }
 
+/* TIMWIN: 1050:0550
+   Very similar to stub_1050_08fe */
 int stub_1050_0550(bool some_bool) {
     struct BorderPoint* borders_data = PART_3a6a->borders_data;
     s16 b0x = TMP_X_3a6a + borders_data[0].x;
@@ -445,7 +643,8 @@ int stub_1050_0550(bool some_bool) {
 
     while (borders_data) {
         u16 quad = quadrant_from_angle(b0angle);
-        if (TMP_3a92 - b0angle != -0x4000 && (TMP_3a92 - b0angle) + 0x4000 >= 0) {
+
+        if (((s16)(TMP_3a92 - b0angle) != -0x4000) && ((s16)(TMP_3a92 - b0angle + 0x4000) >= 0)) {
             struct BorderPoint *borders_data_3a6c = PART_3a6c->borders_data;
             s16 angle_3a6c = borders_data_3a6c->normal_angle;
             borders_data_3a6c += 1;
@@ -500,7 +699,6 @@ int stub_1050_0550(bool some_bool) {
                                         PART_3a6c->pos = PART_3a6c->pos_prev1;
                                     }
                                 } else {
-                                    s16 local_20 = line1.p1.x;
                                     s16 local_22 = (line2.p1.y - line2.p0.y)*line2.p0.x - (line2.p1.x - line2.p0.x)*line2.p0.y;
                                     s16 ivar5 = -(line2.p1.x - line2.p0.x);
                                     if (ivar5 == 0) {
@@ -551,7 +749,6 @@ int stub_1050_0550(bool some_bool) {
                         borders_data_3a6c += 1;
                     }
                 }
-
             }
         }
         border_idx += 1;
@@ -603,9 +800,167 @@ bool bucket_contains(struct Part *bucket, struct Part *contains) {
     return 0;
 }
 
-/* TIMWIN: 1050:08fe */
+/* TIMWIN: 1050:08fe
+   Very similar to stub_1050_0550 */
 int stub_1050_08fe(bool some_bool) {
-    // UNIMPLEMENTED
+    struct BorderPoint *borders_data = PART_3a6c->borders_data;
+    s16 b0x = TMP_X2_3a6c + borders_data[0].x;
+    s16 b0y = TMP_Y2_3a6c + borders_data[0].y;
+
+    s16 b1x = TMP_X2_3a6c + borders_data[1].x;
+    s16 b1y = TMP_Y2_3a6c + borders_data[1].y;
+
+    u16 b0angle = borders_data[0].normal_angle;
+
+    s16 somex = b0x;
+    s16 somey = b0y;
+
+    int border_idx = 1;
+    bool found = 0;
+
+    while (borders_data) {
+        u16 quad = quadrant_from_angle(b0angle + 0x8000);
+
+        if (((s16)(TMP_3a92 - b0angle) != 0x4000) && ((s16)(TMP_3a92 - b0angle - 0x4000) >= 0)) {
+            struct BorderPoint *borders_data_3a6a = PART_3a6a->borders_data;
+            s16 angle_3a6a = borders_data_3a6a->normal_angle;
+            borders_data_3a6a += 1;
+            int border_3a6a_idx = 1;
+
+            while (borders_data_3a6a) {
+                s16 ivar5 = angle_3a6a - b0angle - 0x8000;
+                if (ivar5 >= 0 || ivar5 == -0x8000) {
+                    ivar5 = borders_data_3a6a->normal_angle - b0angle;
+                    if (ivar5 == -0x8000 || ivar5 - 0x8000 < 0) {
+                        if (TMP_X_DELTA_3a6c != 0 || TMP_Y_DELTA_3a6c != 0) {
+                            struct Line line1, line2;
+                            struct ShortVec point;
+
+                            line1.p1.x = PART_3a6a->pos_prev1.x + borders_data_3a6a->x - somex;
+                            line1.p1.y = PART_3a6a->pos_prev1.y + borders_data_3a6a->y - somey;
+                            line1.p0.x = line1.p1.x + TMP_X_DELTA_3a6c;
+                            line1.p0.y = line1.p1.y + TMP_Y_DELTA_3a6c;
+                            line2.p0.x = 0;
+                            line2.p0.y = 0;
+                            line2.p1.x = b1x - somex;
+                            line2.p1.y = b1y - somey;
+
+                            s16 saved_line1_p1_x = line1.p1.x;
+                            s16 saved_line1_p1_y = line1.p1.y;
+
+                            four_points_adjust_p1_by_one(&line2);
+                            if (calculate_line_intersection(&line1, &line2, &point) && !VEC_EQ(point, line2.p1)) {
+                                if (some_bool) {
+                                    return 1;
+                                }
+                                /* TIMWIN: 1108:0c26 */
+                                static const s16 dat_0c26[4] = { 0, -1, 0, 1 };
+                                /* TIMWIN: 1108:0c2e */
+                                static const s16 dat_0c2e[4] = { -1, 0, 1, 0 };
+
+                                line2.p0.x = -dat_0c26[quad];
+                                line2.p0.y = -dat_0c2e[quad];
+                                line2.p1.x += -dat_0c26[quad];
+                                line2.p1.y += -dat_0c2e[quad];
+
+                                struct Part *ppvar4;
+                                ppvar4 = PART_3a6c;
+
+                                if (stub_1050_00f0(b0angle + 0x8000) == 0) {
+                                    ppvar4 = PART_3a6c;
+                                    if (calculate_line_intersection(&line1, &line2, &point)) {
+                                        PART_3a6c->pos.x -= point.x - saved_line1_p1_x;
+                                        PART_3a6c->pos.y -= point.y - saved_line1_p1_y;
+                                    } else {
+                                        PART_3a6c->pos = PART_3a6c->pos_prev1;
+                                    }
+                                } else {
+                                    s16 local_22 = (line2.p1.y - line2.p0.y)*line2.p0.x - (line2.p1.x - line2.p0.x)*line2.p0.y;
+                                    s16 ivar5 = -(line2.p1.x - line2.p0.x);
+                                    if (ivar5 == 0) {
+                                        PART_3a6c->pos = PART_3a6c->pos_prev1;
+                                    } else {
+                                        point.y = (local_22 - (line2.p1.y - line2.p0.y)*line1.p1.x) / ivar5;
+                                        PART_3a6c->pos.y -= point.y - saved_line1_p1_y;
+                                    }
+                                }
+
+                                s16 local_1e = TMP_X_CENTER_3a6c - somex;
+
+                                part_set_size_and_pos_render(PART_3a6c);
+                                // Changes:
+                                // TMP_X2_3a6c, TMP_Y2_3a6c, TMP_X_CENTER_3a6c, TMP_Y_CENTER_3a6c,
+                                // TMP_X_DELTA_3a6c, TMP_Y_DELTA_3a6c, TMP_X_LEFTMOST_3a6c, TMP_Y_TOPMOST_3a6c, TMP_X_RIGHT_3a6c, TMP_Y_BOTTOM_3a6c
+                                stub_1050_001e();
+
+                                PART_3a6c->flags1 &= ~(0x0004 | 0x0002);
+
+                                if (PART_3a6a->type == P_EIGHTBALL) {
+                                    PART_3a6c->flags1 |= 0x0004;
+                                } else {
+                                    if (NO_FLAGS(PART_3a6c->flags2, 0x8000) && NO_FLAGS(PART_3a6a->flags2, 0x8000) && NO_FLAGS(PART_3a6a->flags1, 0x4000)) {
+                                        PART_3a6c->flags1 |= 0x0004;
+                                    } else {
+                                        PART_3a6c->flags1 |= 0x0002;
+                                    }
+                                }
+
+                                PART_3a6c->bounce_part = PART_3a6a;
+                                PART_3a6c->bounce_angle = b0angle + 0x8000;
+
+                                if (b1x < somex) {
+                                    if (point.x < local_1e) {
+                                        PART_3a6c->bounce_field_0x86[0] = 1;
+                                    } else {
+                                        PART_3a6c->bounce_field_0x86[1] = 1;
+                                    }
+                                } else {
+                                    if (point.x < local_1e) {
+                                        PART_3a6c->bounce_field_0x86[1] = 1;
+                                    } else {
+                                        PART_3a6c->bounce_field_0x86[0] = 1;
+                                    }
+                                }
+
+                                PART_3a6c->bounce_border_index = border_idx - 1;
+                                found = 1;
+                            }
+                        }
+                    }
+                }
+
+                border_3a6a_idx += 1;
+                if (PART_3a6a->num_borders < border_3a6a_idx) {
+                    borders_data_3a6a = 0;
+                } else {
+                    angle_3a6a = borders_data_3a6a->normal_angle;
+                    if (PART_3a6a->num_borders == border_3a6a_idx) {
+                        borders_data_3a6a = PART_3a6a->borders_data;
+                    } else {
+                        borders_data_3a6a += 1;
+                    }
+                }
+            }
+        }
+        border_idx += 1;
+        if (PART_3a6c->num_borders < border_idx) {
+            borders_data = 0;
+        } else {
+            somex = b1x;
+            somey = b1y;
+            b0angle = borders_data[1].normal_angle;
+            if (PART_3a6c->num_borders == border_idx) {
+                b1x = b0x;
+                b1y = b0y;
+            } else {
+                b1x = TMP_X2_3a6c + borders_data[2].x;
+                b1y = TMP_Y2_3a6c + borders_data[2].y;
+            }
+            borders_data += 1;
+        }
+    }
+
+    return found;
 }
 
 /* TIMWIN: 1050:02db */
@@ -703,9 +1058,338 @@ int stub_1050_02db(struct Part *part) {
     return 0;
 }
 
+/* TIMWIN: 10a8:42e6
+   Returns absoulute length between the two rope points.
+   out_x and out_y are the signed x/y deltas between the two rope points.
+*/
+s16 distance_to_rope_link(struct RopeData *rope, struct Part *part, s16 *out_x, s16 *out_y) {
+    s16 rope_x_1, rope_y_1;
+    s16 rope_x_2, rope_y_2;
+    if (rope->part1 == part) {
+        int rope_slot = rope->part1_rope_slot;
+        rope_x_1 = part->pos_render.x + part->rope_loc[rope_slot].x;
+        rope_y_1 = part->pos_render.y + part->rope_loc[rope_slot].y;
+
+        struct Part *links_to = part->links_to[rope_slot];
+        int index = part_get_rope_link_index(part, links_to);
+        if (links_to->type == P_PULLEY) {
+            rope_x_2 = links_to->rope_data[0]->ends_pos[1 - index].x;
+            rope_y_2 = links_to->rope_data[0]->ends_pos[1 - index].y;
+        } else {
+            rope_x_2 = links_to->pos_render.x + links_to->rope_loc[index].x;
+            rope_y_2 = links_to->pos_render.y + links_to->rope_loc[index].y;
+        }
+    } else {
+        int rope_slot = rope->part2_rope_slot;
+        rope_x_1 = rope->part2->pos_render.x + rope->part2->rope_loc[rope_slot].x;
+        rope_y_1 = rope->part2->pos_render.y + rope->part2->rope_loc[rope_slot].y;
+
+        struct Part *links_to = rope->part2->links_to[rope_slot];
+        int index = part_get_rope_link_index(rope->part2, links_to);
+        if (links_to->type == P_PULLEY) {
+            rope_x_2 = links_to->rope_data[0]->ends_pos[1 - index].x;
+            rope_y_2 = links_to->rope_data[0]->ends_pos[1 - index].y;
+        } else {
+            rope_x_2 = links_to->pos_render.x + links_to->rope_loc[index].x;
+            rope_y_2 = links_to->pos_render.y + links_to->rope_loc[index].y;
+        }
+    }
+
+    *out_x = rope_x_1 - rope_x_2;
+    *out_y = rope_y_1 - rope_y_2;
+
+    return approx_hypot(abs(rope_x_1 - rope_x_2), abs(rope_y_1 - rope_y_2));
+}
+
+/* TIMWIN: 10a8:4509 */
+int stub_10a8_4509(struct Part *part_a, struct Part *part_b) {
+    s32 force = part_a->force;
+
+    for (struct Llama *llama2 = LLAMA_2; llama2 != 0; llama2 = llama2->next) {
+        if (llama2->part == part_b && llama2->force >= force) {
+            return 0;
+        }
+    }
+
+    struct Llama *llama1_head = LLAMA_1;
+
+    if (LLAMA_2 && LLAMA_2->force >= force) {
+        struct Llama *llama2_insert_point = LLAMA_2;
+        
+        struct Llama *cur = LLAMA_2->next;
+        while (cur) {
+            if (cur->force < force) break;
+            llama2_insert_point = cur;
+            cur = cur->next;
+        }
+
+        // Pop head of LLAMA_1, insert it AFTER llama2_insert_point.
+
+        struct Llama *tmp = LLAMA_1;
+        LLAMA_1 = LLAMA_1->next;
+        tmp->next = llama2_insert_point->next;
+        llama2_insert_point->next = tmp;
+    } else {
+        // Pop head of LLAMA_1, prepend to LLAMA_2
+
+        struct Llama *tmp = LLAMA_1;
+        LLAMA_1 = LLAMA_1->next;
+        tmp->next = LLAMA_2;
+        LLAMA_2 = tmp;
+    }
+
+    llama1_head->part = part_b;
+    llama1_head->force = force;
+    return 1;
+}
+
+/* TIMWIN: 10a8:28f6 */
+void stub_10a8_28f6(struct Part *part, int _unused) {
+    // UNIMPLEMENTED
+}
+
+/* TIMWIN: 10a8:3c6d */
+static inline void stub_10a8_3c6d(struct Part *part, byte param2, byte param3, u16 param4) {
+    if ((param4 & 1) != 0) {
+        part->vel_hi_precision.x = (part->pos.x - part->pos_prev1.x) << (9 - (param2 % 32));
+    }
+    if ((param4 & 2) != 0) {
+        part->vel_hi_precision.y = (part->pos.y - part->pos_prev1.y) << (9 - (param3 % 32));
+    }
+    part_clamp_to_terminal_velocity(part);
+}
+
 /* TIMWIN: 10a8:3cc1 */
 int stub_10a8_3cc1(struct Part *part) {
-    // UNIMPLEMENTED
+    enum PartType links_to_0_type = part->links_to[0]->type;
+
+    int part_cmp_pos_y;
+    if (part->pos.y < part->pos_prev1.y) {
+        // Went up
+        part_cmp_pos_y = 0;
+    } else if (part->pos.y > part->pos_prev1.y) {
+        // Went down
+        part_cmp_pos_y = 1;
+    } else {
+        // Didn't change
+        part_cmp_pos_y = -1;
+    }
+
+    struct RopeData *rope = part->rope_data[0];
+    struct Part *rope_or_pulley_part = rope->rope_or_pulley_part;
+    struct Part *other_part = rope_get_other_part(part, rope);
+
+    byte rope_slot;
+    s16 thing1, thing2, thing3;
+    if (rope->part1 != part) {
+        rope_slot = rope->part1_rope_slot;
+        thing1 = rope_or_pulley_part->extra2;
+        thing2 = rope_or_pulley_part->extra1;
+        thing3 = 1;
+    } else {
+        rope_slot = rope->part2_rope_slot;
+        thing1 = rope_or_pulley_part->extra1;
+        thing2 = rope_or_pulley_part->extra2;
+        thing3 = 0;
+    }
+
+    s16 delta_other_x, delta_other_y;
+    s16 delta_part_x, delta_part_y;
+    s16 distance_other_part = distance_to_rope_link(rope, other_part, &delta_other_x, &delta_other_y);
+    s16 distance_part       = distance_to_rope_link(rope, part,       &delta_part_x, &delta_part_y);
+
+    s16 adj_distance_part = distance_part - thing1;
+
+    if (part->type != P_ROPE_SEVERED_END && adj_distance_part > 0 && (s16)(distance_other_part - thing2) < 0) {
+        s16 v = adj_distance_part + distance_other_part - thing2;
+        s16 tmp;
+        if (v <= 0) {
+            adj_distance_part = 0;
+            tmp = v;
+        } else {
+            adj_distance_part = v;
+            tmp = 0;
+        }
+
+        if (rope->part1 == part) {
+            thing1 = distance_part - adj_distance_part;
+            rope_or_pulley_part->extra1 = thing1;
+            thing2 = distance_other_part - tmp;
+            rope_or_pulley_part->extra2 = thing2;
+        } else {
+            thing1 = distance_part - adj_distance_part;
+            rope_or_pulley_part->extra2 = thing1;
+            thing2 = distance_other_part - tmp;
+            rope_or_pulley_part->extra1 = thing2;
+        }
+    }
+
+    if (adj_distance_part > 0 && ANY_FLAGS(other_part->flags1, 0x1000)) {
+        if (other_part->type != P_ROPE_SEVERED_END && part->type != P_ROPE_SEVERED_END && other_part->mass < part->mass) {
+            s16 mass_delta = part->mass - other_part->mass;
+            s16 tmp = abs(adj_distance_part);
+            s32 tmp2 = (s32)tmp * (s32)mass_delta;
+            s16 tmp3 = (tmp2 + part->mass) / (part->mass);
+            tmp = abs(thing2);
+            mass_delta = tmp3;
+            if (mass_delta < 2) {
+                mass_delta = 1;
+            }
+            if (mass_delta < abs(thing2)) {
+                if (tmp3 < 2) {
+                    tmp3 = 1;
+                }
+            } else {
+                tmp3 = abs(thing2);
+            }
+            if (tmp3 != 0) {
+                if (rope->part1 == part) {
+                    rope_or_pulley_part->extra2 -= tmp3;
+                    thing2 = rope_or_pulley_part->extra2;
+
+                    stub_10a8_3cc1(other_part);
+                    other_part->flags1 &= ~(0x000f);
+                    stub_1050_02db(other_part);
+                    distance_other_part = distance_to_rope_link(rope, other_part, &delta_other_x, &delta_other_y);
+                    mass_delta = distance_other_part - thing2;
+                    if (mass_delta != 0) {
+                        rope_or_pulley_part->extra2 += mass_delta;
+                        tmp3 -= mass_delta;
+                    }
+                    if (tmp3 != 0) {
+                        rope_or_pulley_part->extra1 += tmp3;
+                        thing1 = rope_or_pulley_part->extra1;
+                        adj_distance_part = distance_part - thing1;
+                    }
+                } else {
+                    rope_or_pulley_part->extra1 -= tmp3;
+                    thing2 = rope_or_pulley_part->extra1;
+
+                    stub_10a8_3cc1(other_part);
+                    other_part->flags1 &= ~(0x000f);
+                    stub_1050_02db(other_part);
+                    distance_other_part = distance_to_rope_link(rope, other_part, &delta_other_x, &delta_other_y);
+                    mass_delta = distance_other_part - thing2;
+                    if (mass_delta != 0) {
+                        rope_or_pulley_part->extra1 += mass_delta;
+                        tmp3 -= mass_delta;
+                    }
+                    if (tmp3 != 0) {
+                        rope_or_pulley_part->extra2 += tmp3;
+                        thing1 = rope_or_pulley_part->extra2;
+                        adj_distance_part = distance_part - thing1;
+                    }
+                }
+            }
+        }
+    }
+
+    if (adj_distance_part > 0) {
+        if (other_part->type == P_ROPE_SEVERED_END && part->type != P_ROPE_SEVERED_END) {
+            if (links_to_0_type == P_PULLEY) {
+                if (rope->part1 == other_part) {
+                    rope_or_pulley_part->extra1 -= adj_distance_part;
+                    if (rope_or_pulley_part->extra1 < 0) {
+                        adj_distance_part += rope_or_pulley_part->extra1;
+
+                        enum LevelState prev_level_state = LEVEL_STATE;
+                        LEVEL_STATE = DESIGN_MODE;
+                        stub_10a8_28f6(rope_or_pulley_part, 3);
+                        LEVEL_STATE = prev_level_state;
+
+                        struct Part *a_part = other_part->links_to[rope->part1_rope_slot];
+                        struct Part *b_part = a_part->links_to[0];
+                        int rope_link_idx = part_get_rope_link_index(a_part, b_part);
+                        other_part->links_to[rope->part1_rope_slot] = b_part;
+                        b_part->links_to[rope_link_idx] = other_part;
+                        a_part->links_to[0] = 0;
+                        a_part->links_to[1] = 0;
+
+                        rope->rope_or_pulley_part->extra1 = approximate_hypot_of_rope(rope, ROPETIME_CURRENT, ROPE_FROM_FIRST);
+                    }
+                    rope_or_pulley_part->extra2 += adj_distance_part;
+                } else {
+                    rope_or_pulley_part->extra2 -= adj_distance_part;
+                    if (rope_or_pulley_part->extra2 < 0) {
+                        adj_distance_part += rope_or_pulley_part->extra2;
+
+                        enum LevelState prev_level_state = LEVEL_STATE;
+                        LEVEL_STATE = DESIGN_MODE;
+                        stub_10a8_28f6(rope_or_pulley_part, 3);
+                        LEVEL_STATE = prev_level_state;
+
+                        struct Part *a_part = other_part->links_to[rope->part2_rope_slot];
+                        struct Part *b_part = a_part->links_to[1];
+                        int rope_link_idx = part_get_rope_link_index(a_part, b_part);
+                        other_part->links_to[rope->part2_rope_slot] = b_part;
+                        b_part->links_to[rope_link_idx] = other_part;
+                        a_part->links_to[0] = 0;
+                        a_part->links_to[1] = 0;
+
+                        rope->rope_or_pulley_part->extra2 = approximate_hypot_of_rope(rope, ROPETIME_CURRENT, ROPE_FROM_LAST);
+                    }
+                    rope_or_pulley_part->extra1 += adj_distance_part;
+                }
+            }
+            
+            return 0;
+        } else {
+            part->pos.x += (((s32)delta_part_x * (s32)thing1) / distance_part) - delta_part_x;
+            part->pos_x_hi_precision = part->pos.x * 512;
+
+            part->pos.y += (((s32)delta_part_y * (s32)thing1) / distance_part) - delta_part_y;
+            part->pos_y_hi_precision = part->pos.y * 512;
+
+            part_set_size_and_pos_render(part);
+            stub_10a8_3c6d(part, 0, 0, 1);
+
+            if (part->pos.x == part->pos_prev1.x) {
+                part->vel_hi_precision.y = 0;
+            }
+
+            if (part->type != P_ROPE_SEVERED_END && part_cmp_pos_y != -1) {
+                u16 rope_flags = rope_calculate_flags(rope, thing3, part_cmp_pos_y == 0 ? 0 : 1);
+
+                if (other_part->type == P_TEETER_TOTTER) {
+                    s16 state2 = 0;
+                    if ((rope_flags & 0x0004) == 0) {
+                        if (rope_slot == 0) {
+                            if (other_part->state1 < 2) {
+                                state2 = 1;
+                            }
+                        } else {
+                            if (other_part->state1 > 0) {
+                                state2 = -1;
+                            }
+                        }
+                    } else {
+                        if (rope_slot == 0) {
+                            if (other_part->state1 > 0) {
+                                state2 = -1;
+                            }
+                        } else {
+                            if (other_part->state1 < 2) {
+                                state2 = 1;
+                            }
+                        }
+                    }
+
+                    int res = stub_10a8_4509(part, other_part);
+
+                    if (res != 0) {
+                        other_part->state2 = state2;
+                        other_part->force = part->force;
+                    }
+                } else {
+                    part_rope(other_part->type, part, other_part, 0, rope_flags, part_mass(part->type), part->force);
+                }
+            }
+
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 /* TIMWIN: 1080:1777 */
@@ -854,14 +1538,14 @@ void advance_parts() {
         part->flags2 &= 0xf9bf;
     }
 
-    for (struct Llama *p = LLAMA; p != 0; p = p->next) {
+    for (struct Llama *p = LLAMA_2; p != 0; p = p->next) {
         struct Part *part = p->part;
         if (NO_FLAGS(part->flags2, 0x0040)) {
             part_run(part);
         }
     }
 
-    stub_10a8_44d5();
+    move_llama2_to_beginning_of_llama1();
 
     EACH_STATIC_PART(part) {
         if (ANY_FLAGS(part->flags2, 0x0800) && NO_FLAGS(part->flags2, 0x2000 | 0x0040)) {

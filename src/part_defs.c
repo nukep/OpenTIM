@@ -9,6 +9,119 @@ struct Part* part_new(enum PartType type);
 void insert_part_into_static_parts(struct Part *part);
 void insert_part_into_moving_parts(struct Part *part);
 
+struct PartDef *part_def(enum PartType type);
+
+
+u16 part_data30_flags1(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_data30_flags1 - def not found");
+        return 0;
+    }
+
+    return def->flags1;
+}
+u16 part_data30_flags3(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_data30_flags3 - def not found");
+        return 0;
+    }
+
+    return def->flags3;
+}
+struct ShortVec part_data30_size_something2(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_data30_size_something2 - def not found");
+        return (struct ShortVec){ 0, 0 };
+    }
+
+    return def->size_something2;
+}
+struct ShortVec part_data30_size(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_data30_size - def not found");
+        return (struct ShortVec){ 0, 0 };
+    }
+
+    return def->size;
+}
+u16 part_data31_num_borders(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_data31_num_borders - def not found");
+        return 0;
+    }
+
+    return def->borders;
+}
+
+void part_run(struct Part *part) {
+    struct PartDef *def = part_def(part->type);
+    if (!def) {
+        TRACE_ERROR("part_run - def not found");
+        return;
+    }
+
+    def->run_func(part);
+}
+
+void part_reset(struct Part *part) {
+    struct PartDef *def = part_def(part->type);
+    if (!def) {
+        TRACE_ERROR("part_reset - def not found");
+        return;
+    }
+
+    def->reset_func(part);
+}
+
+int part_bounce(enum PartType type, struct Part *part) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_bounce - def not found");
+        return 0;
+    }
+
+    return def->bounce_func(part);
+}
+
+int part_rope(enum PartType type, struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_rope - def not found");
+        return 0;
+    }
+
+    return def->rope_func(p1, p2, rope_slot, flags, p1_mass, p1_force);
+}
+
+s16 part_density(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_density - def not found");
+        return 0;
+    }
+
+    return def->density;
+}
+
+s16 part_mass(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_mass - def not found");
+        return 0;
+    }
+
+    return def->mass;
+}
+
+
+
+
+
 int default_bounce(struct Part *part) {
     return 1;
 }
@@ -29,7 +142,7 @@ void default_resize(struct Part *part) {
     return;
 }
 
-int default_rope(struct Part *p1, struct Part *p2, int rope_slot, int flags, s16 p1_pass, s32 p1_force) {
+int default_rope(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_pass, s32 p1_force) {
     return 0;
 }
 
@@ -103,9 +216,8 @@ int create_wall(struct Part *part) {
     part->flags2 |= 0x0180;
     ALLOC_BORDERS(part);
     reset_wall(part);
+    return 0;
 }
-
-
 
 /* TIMWIN: 10d0:0114 */
 void reset_teeter_totter(struct Part *part) {
@@ -121,10 +233,10 @@ void reset_teeter_totter(struct Part *part) {
         { { 0x00, 0x03 }, { 0x4F, 0x20 }, { 0x4F, 0x24 }, { 0x2C, 0x18 }, { 0x2C, 0x22 }, { 0x24, 0x22 }, { 0x24, 0x15 }, { 0x00, 0x08 } }
     };
 
-    part->rope_loc_1.x = dat_2e9e[part->state1][0];
-    part->rope_loc_1.y = dat_2e9e[part->state1][1];
-    part->rope_loc_2.x = dat_2eaa[part->state1][0];
-    part->rope_loc_2.y = dat_2eaa[part->state1][1];
+    part->rope_loc[0].x = dat_2e9e[part->state1][0];
+    part->rope_loc[0].y = dat_2e9e[part->state1][1];
+    part->rope_loc[1].x = dat_2eaa[part->state1][0];
+    part->rope_loc[1].y = dat_2eaa[part->state1][1];
 
     // Set Teeter-Totter's border based on its state.
     if (part->state1 < 3) {
@@ -169,8 +281,8 @@ void reset_unknown37(struct Part *part) {
     }
 
     part_calculate_border_normals(part);
-    part->rope_loc_1.x = part->size.x / 2;
-    part->rope_loc_1.y = 0;
+    part->rope_loc[0].x = part->size.x / 2;
+    part->rope_loc[0].y = 0;
 }
 
 /* TIMWIN: 1058:1591 */
@@ -203,8 +315,8 @@ void reset_unknown39(struct Part *part) {
     part->borders_data[3].y = y2;
 
     part_calculate_border_normals(part);
-    part->rope_loc_1.x = part->size.x / 2;
-    part->rope_loc_1.y = 0;
+    part->rope_loc[0].x = part->size.x / 2;
+    part->rope_loc[0].y = 0;
 }
 
 struct PartDef BOWLING_BALL = {
@@ -388,12 +500,120 @@ void teeter_totter_helper_1(struct Part *part, bool is_bottom, s16 offset_x) {
     }
 }
 
-/* TIMWIN: 10d0:0627 */
-int teeter_totter_helper_2(struct Part *p1, struct Part *p2, u16 flags, s16 mass) {
-    // UNIMPLEMENTED
-    if (NO_FLAGS(p2->flags2, 0x0200)) {
+/*
+enum RopeFlags {
+    0x01,
 
+    // Y-related
+    0x02,
+    0x04,
+
+    // X-related
+    0x08,
+    0x10
+};
+*/
+
+/* TIMWIN: 10a8:376e */
+u16 rope_calculate_flags(struct RopeData *rope, int param_2, int param_3) {
+    struct Part *local14;
+    byte bvar1, bvar2;
+    struct Part *ppvar4;
+
+    if (param_2 == 0) {
+        local14 = rope->part1;
+        bvar1 = rope->part1_rope_slot;
+        ppvar4 = rope->part2;
+        bvar2 = rope->part2_rope_slot;
+    } else {
+        local14 = rope->part2;
+        bvar1 = rope->part2_rope_slot;
+        ppvar4 = rope->part1;
+        bvar2 = rope->part1_rope_slot;
     }
+
+    u16 local6 = bvar1;
+    u16 local8 = bvar2;
+    struct Part *ppvar3 = local14->links_to[local6];
+
+    struct RopeData *local10;
+    struct RopeData *local12;
+    if (ppvar3 == ppvar4) {
+        local12 = rope;
+        local10 = rope;
+    } else {
+        local10 = ppvar3->rope_data[0];
+        local12 = ppvar4->links_to[local8]->rope_data[0];
+    }
+
+    u16 flags;
+
+    if (local12->ends_pos[param_2].x < rope->ends_pos[1 - param_2].x) {
+        flags = 0x0008;
+    } else {
+        flags = 0x0010;
+    }
+
+    if (param_3 != 0) {
+        if (rope->ends_pos[param_2].y < local10->ends_pos[1 - param_2].y) {
+            return 0x0001;
+        } else if (rope->ends_pos[1 - param_2].y < local12->ends_pos[param_2].y) {
+            return flags | 0x0004;
+        } else {
+            return flags | 0x0002;
+        }
+    } else {
+        if (rope->ends_pos[param_2].y > local10->ends_pos[1 - param_2].y) {
+            return 0x0001;
+        } else if (rope->ends_pos[1 - param_2].y > local12->ends_pos[param_2].y) {
+            return flags | 0x0002;
+        } else {
+            return flags | 0x0004;
+        }
+    }
+}
+
+/* TIMWIN: 10d0:0627 */
+int teeter_totter_helper_2(struct Part *exclude_part, struct Part *part, u16 flags, s16 mass, s32 force) {
+    if (ANY_FLAGS(part->flags2, 0x0200)) {
+        return 1;
+    }
+
+    for (int i = 0; i < 2; i++) {
+        struct RopeData *rpd = part->rope_data[i];
+        if (!rpd) continue;
+
+        struct Part *other_part = rope_get_other_part(part, rpd);
+        if (other_part == exclude_part) continue;
+
+        byte bvar1, bvar2;
+
+        if (rpd->part1 != part) {
+            bvar1 = rpd->part2_rope_slot;
+            bvar2 = rpd->part1_rope_slot;
+        } else {
+            bvar1 = rpd->part1_rope_slot;
+            bvar2 = rpd->part2_rope_slot;
+        }
+
+        int rope_slot = bvar2;
+        int ivar4;
+
+        if (part->state2 < 1) {
+            ivar4 = bvar1 == 0 ? 1 : 0;
+        } else {
+            ivar4 = bvar1 == 0 ? 0 : 1;
+        }
+
+        u16 new_flags = rope_calculate_flags(rpd, rpd->part1 == part ? 0 : 1, ivar4);
+
+        int res = part_rope(other_part->type, part, other_part, rope_slot, new_flags | flags, mass, force);
+        if (res != 0) {
+            return res;
+        }
+    }
+
+    return 0;
 }
 
 /* TIMWIN: 10d0:0731 */
@@ -469,9 +689,9 @@ void run_teeter_totter(struct Part *part) {
     if (part->state2 != 0) {
         part->flags2 |= 0x0040;
         if (NO_FLAGS(part->flags2, 0x0400)) {
-            int res = teeter_totter_helper_2(0, part, 0x8000, 1000);
+            int res = teeter_totter_helper_2(0, part, 0x8000, 1000, part->force);
             if (res == 0) {
-                teeter_totter_helper_2(0, part, 0, 1000);
+                teeter_totter_helper_2(0, part, 0, 1000, part->force);
                 part->state1 += part->state2;
             } else {
                 part->flags2 |= 0x0200;
@@ -576,18 +796,11 @@ void reset_balloon(struct Part *part) {
 int create_balloon(struct Part *part) {
     part->flags1 |= 0x20;
     part->flags2 |= 0x04;
-    part->rope_loc_1.x = 16;
-    part->rope_loc_1.y = 47;
+    part->rope_loc[0].x = 16;
+    part->rope_loc[0].y = 47;
     ALLOC_BORDERS(part);
     reset_balloon(part);
     return 0;
-}
-
-/* TIMWIN: 10a8:38fc */
-int part_get_rope_link_index(struct Part *target, struct Part *from) {
-    if (from->links_to[0] == target) return 0;
-    if (from->links_to[1] == target) return 1;
-    return -1;
 }
 
 /* TIMWIN: 1048:06f4 */
@@ -634,8 +847,25 @@ void run_balloon(struct Part *part) {
     part_set_size_and_pos_render(part);
 }
 
-int rope_balloon(struct Part *p1, struct Part *p2, int rope_slot, int flags, s16 p1_pass, s32 p1_force) {
-    return 0;
+/* TIMWIN: 1048:082b */
+int rope_balloon(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_pass, s32 p1_force) {
+    if (flags == 0x0001) {
+        p2->rope_data[0]->rope_unknown += 1;
+        return 0;
+    }
+    if (p1->type == P_TEETER_TOTTER) {
+        if (p1_force < p2->force) {
+            return 1;
+        } else {
+            return 0;
+        }
+    } else {
+        if (p1_force < p2->force*2) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
 }
 
 struct PartDef BALLOON = {
@@ -685,92 +915,6 @@ int part_create_func(enum PartType type, struct Part *part) {
     return def->create_func(part);
 }
 
-u16 part_data30_flags1(enum PartType type) {
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_data30_flags1 - def not found");
-        return 0;
-    }
-
-    return def->flags1;
-}
-u16 part_data30_flags3(enum PartType type) {
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_data30_flags3 - def not found");
-        return 0;
-    }
-
-    return def->flags3;
-}
-struct ShortVec part_data30_size_something2(enum PartType type) {
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_data30_size_something2 - def not found");
-        return (struct ShortVec){ 0, 0 };
-    }
-
-    return def->size_something2;
-}
-struct ShortVec part_data30_size(enum PartType type) {
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_data30_size - def not found");
-        return (struct ShortVec){ 0, 0 };
-    }
-
-    return def->size;
-}
-u16 part_data31_num_borders(enum PartType type) {
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_data31_num_borders - def not found");
-        return 0;
-    }
-
-    return def->borders;
-}
-
-void part_run(struct Part *part) {
-    struct PartDef *def = part_def(part->type);
-    if (!def) {
-        TRACE_ERROR("part_run - def not found");
-        return;
-    }
-
-    def->run_func(part);
-}
-
-int part_bounce(enum PartType type, struct Part *part) {
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_bounce - def not found");
-        return 0;
-    }
-
-    return def->bounce_func(part);
-}
-
-s16 part_density(enum PartType type) {
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_density - def not found");
-        return 0;
-    }
-
-    return def->density;
-}
-
-s16 part_mass(enum PartType type) {
-    struct PartDef *def = part_def(type);
-    if (!def) {
-        TRACE_ERROR("part_mass - def not found");
-        return 0;
-    }
-
-    return def->mass;
-}
-
 /* Partial from TIMWIN: 1090:0000 */
 // Returns a value from 0 to 1024 inclusive.
 static inline u16 calculate_adj_grav(u16 gravity) {
@@ -786,7 +930,6 @@ static inline u16 calculate_adj_grav(u16 gravity) {
 /* Partial from TIMWIN: 1090:0000 */
 // Returns a value from 0 to 2048 inclusive.
 static inline u16 calculate_adj_air(u16 air_pressure) {
-    u16 adj_air;
     if (air_pressure < 70) {
         return air_pressure/2;
     } else {

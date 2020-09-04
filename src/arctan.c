@@ -15,6 +15,8 @@ static const int ARCTAN_LOOKUP[512] = {
   Right (+, 0) returns 0xC000 (75% of 65536)
 
   dx and dy range from -0x400000 to +0x3FFFFF (-4,194,304 to 4,194,303)
+
+  Returns 4096 possible angles. (approx 11.3 divisions per degree)
   */
 u16 arctan(s32 dx, s32 dy) {
     bool negx = dx < 0;
@@ -71,7 +73,8 @@ TEST_SUITE(arctan) {
         }
     }
 
-    TEST("30-degree intervals") {
+    TEST("26.565-degree intervals") {
+        // (function returns 0x12E0, or 26.543 degrees)
         for (s32 i = 1; i <= 10000; i++) {
             T(-1,  2, 0x12E0);
             T(-2,  1, 0x2D20);
@@ -81,6 +84,20 @@ TEST_SUITE(arctan) {
             T( 2, -1, 0xAD20);
             T( 2,  1, 0xD2E0);
             T( 1,  2, 0xED20);
+        }
+    }
+
+    TEST("5.711-degree intervals") {
+        // (function returns 0x0400, or 5.625 degrees)
+        for (s32 i = 1; i <= 10000; i++) {
+            T(-1,  10, 0x0400);
+            T(-10,  1, 0x3C00);
+            T(-10, -1, 0x4400);
+            T(-1, -10, 0x7C00);
+            T( 1, -10, 0x8400);
+            T( 10, -1, 0xBC00);
+            T( 10,  1, 0xC400);
+            T( 1,  10, 0xFC00);
         }
     }
 

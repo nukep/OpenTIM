@@ -141,7 +141,7 @@ struct PartDef {
     void (*reset_func) (struct Part *);
     void (*flip_func)  (struct Part *, int);
     void (*resize_func)(struct Part *);
-    int  (*rope_func)  (struct Part *p1, struct Part *p2, int rope_slot, int flags, s16 p1_mass, s32 p1_force);
+    int  (*rope_func)  (struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force);
 };
 
 // Part Def accessors
@@ -153,7 +153,9 @@ struct ShortVec part_data30_size_something2(enum PartType type);
 struct ShortVec part_data30_size(enum PartType type);
 u16 part_data31_num_borders(enum PartType type);
 void part_run(struct Part *part);
+void part_reset(struct Part *part);
 int part_bounce(enum PartType type, struct Part *part);
+int part_rope(enum PartType type, struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force);
 s16 part_mass(enum PartType type);
 s16 part_acceleration(enum PartType type);
 s16 part_terminal_velocity(enum PartType type);
@@ -181,6 +183,7 @@ enum LevelState {
 struct Llama {
     struct Llama *next;         // TIMWIN offset: 0x00
     struct Part *part;          // TIMWIN offset: 0x02
+    s32 force;                  // TIMWIN offset: 0x04
 };
 
 struct Line {
@@ -193,6 +196,49 @@ static const u16 DEFAULT_GRAVITY = 272;
 static const u16 DEFAULT_AIR_PRESSURE = 67;
 #define MAX_GRAVITY 512
 #define MAX_AIR_PRESSURE 128
+
+static inline s16 approx_hypot(s16 x, s16 y) {
+    if (x < y) {
+        return x/4 + x/8 + y;
+    } else {
+        return y/4 + y/8 + x;
+    }
+}
+
+
+/* TIMWIN: 10a8:3935 */
+static inline struct Part* rope_get_other_part(struct Part *part, struct RopeData *rope) {
+    if (!rope) {
+        return 0;
+    } else if (rope->part1 == part) {
+        return rope->part2;
+    } else {
+        return rope->part1;
+    }
+}
+
+/* TIMWIN: 10a8:38fc */
+static inline int part_get_rope_link_index(struct Part *target, struct Part *from) {
+    if (from->links_to[0] == target) return 0;
+    if (from->links_to[1] == target) return 1;
+    return -1;
+}
+
+
+/* draw_rope.c */
+enum RopeTime {
+    ROPETIME_PREV2 = 1,
+    ROPETIME_PREV1 = 2,
+    ROPETIME_CURRENT = 3
+};
+
+enum RopeFirstOrLast {
+    ROPE_FROM_FIRST = 0,
+    ROPE_FROM_LAST = 1
+};
+
+s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, enum RopeFirstOrLast first_or_last);
+/* */
 
 #include "globals.h"
 

@@ -1,5 +1,7 @@
 #ifdef ENABLE_TEST_SUITE
 
+#include <stdio.h>
+
 int TEST_TO_RUN = 0;
 int TEST_FOUND = 0;
 int TEST_ERROR = 0;
@@ -55,8 +57,4 @@ int main(int argc, char *argv[]) {
     }
 }
 
-#else
-int main(int argc, char *argv[]) {
-    printf("nope!\n");
-}
 #endif

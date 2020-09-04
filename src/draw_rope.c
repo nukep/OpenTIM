@@ -1,25 +1,11 @@
 #include "tim.h"
 
-enum RopeTime {
-    PREV2 = 1,
-    PREV1 = 2,
-    CURRENT = 3
-};
-
-static inline s16 approx_hypot(s16 x, s16 y) {
-    if (x < y) {
-        return x/4 + x/8 + y;
-    } else {
-        return y/4 + y/8 + x;
-    }
-}
-
 /* TIMWIN: 10a8:396f */
-s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, int first_or_last) {
+s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, enum RopeFirstOrLast first_or_last) {
     struct RopeData *a, *b;
     int i_a, i_b;
 
-    if (first_or_last == 0) {
+    if (first_or_last == ROPE_FROM_FIRST) {
         struct Part *v = rope_data->part1->links_to[rope_data->part1_rope_slot];
 
         if (rope_data->part2 == v) {
@@ -55,11 +41,11 @@ s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, in
     }
 
     switch (time) {
-        case PREV2:
+        case ROPETIME_PREV2:
         return approx_hypot(abs(a->ends_pos_prev2[i_a].x - b->ends_pos_prev2[i_b].x),
                             abs(a->ends_pos_prev2[i_a].y - b->ends_pos_prev2[i_b].y));
         
-        case PREV1:
+        case ROPETIME_PREV1:
         return approx_hypot(abs(a->ends_pos_prev1[i_a].x - b->ends_pos_prev1[i_b].x),
                             abs(a->ends_pos_prev1[i_a].y - b->ends_pos_prev1[i_b].y));
         
@@ -85,8 +71,8 @@ s16 calculate_rope_sag(struct Part *part, struct RopeData *rope_data, enum RopeT
     if (rope_data->part1 == part) {
         s16 v;
         switch (time) {
-            case PREV2: v = rope_part->extra1_prev2; break;
-            case PREV1: v = rope_part->extra1_prev1; break;
+            case ROPETIME_PREV2: v = rope_part->extra1_prev2; break;
+            case ROPETIME_PREV1: v = rope_part->extra1_prev1; break;
             default:    v = rope_part->extra1; break;
         }
         return v - approximate_hypot_of_rope(rope_data, time, 0);
@@ -100,8 +86,8 @@ s16 calculate_rope_sag(struct Part *part, struct RopeData *rope_data, enum RopeT
 
         s16 v;
         switch (time) {
-            case PREV2: v = rope_part->extra2_prev2; break;
-            case PREV1: v = rope_part->extra2_prev1; break;
+            case ROPETIME_PREV2: v = rope_part->extra2_prev2; break;
+            case ROPETIME_PREV1: v = rope_part->extra2_prev1; break;
             default:    v = rope_part->extra2; break;
         }
 
