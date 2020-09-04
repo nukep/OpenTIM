@@ -45,6 +45,7 @@ int main(int argc, char *argv[]) {
     RUNTEST(arctan);
     RUNTEST(draw_rope);
     RUNTEST(acceleration_and_terminal_velocity);
+    RUNTEST(sine);
 
     printf("%d/%d tests passed.\n", tests_passed, tests_total);
 

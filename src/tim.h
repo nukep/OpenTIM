@@ -240,6 +240,13 @@ enum RopeFirstOrLast {
 s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, enum RopeFirstOrLast first_or_last);
 /* */
 
+
+/* sine.c */
+s16 sine(u16 angle);
+s16 cosine(u16 angle);
+void rotate_point(s16 *x, s16 *y, u16 angle);
+/* */
+
 #include "globals.h"
 
 #endif
