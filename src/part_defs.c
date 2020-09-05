@@ -138,6 +138,15 @@ s16 part_friction(enum PartType type) {
     return def->friction;
 }
 
+u16 part_order(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_order - def not found");
+        return 0;
+    }
+
+    return def->part_order;
+}
 
 int default_bounce(struct Part *part) {
     return 1;

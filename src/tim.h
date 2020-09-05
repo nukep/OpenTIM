@@ -70,8 +70,8 @@ enum GetPartsFlags {
 struct Part* get_first_part(int choice);
 struct Part* next_part_or_fallback(struct Part *part, int choice);
 
-#define EACH_STATIC_PART(varname) for (struct Part *varname = STATIC_PARTS_START; varname != 0; varname = varname->next)
-#define EACH_MOVING_PART(varname) for (struct Part *varname = MOVING_PARTS_START; varname != 0; varname = varname->next)
+#define EACH_STATIC_PART(varname) for (struct Part *varname = STATIC_PARTS_ROOT.next; varname != 0; varname = varname->next)
+#define EACH_MOVING_PART(varname) for (struct Part *varname = MOVING_PARTS_ROOT.next; varname != 0; varname = varname->next)
 #define EACH_STATIC_THEN_MOVING_PART(varname) \
     for (struct Part *varname = get_first_part(CHOOSE_STATIC_OR_ELSE_MOVING_PART); varname != 0; varname = next_part_or_fallback(varname, CHOOSE_MOVING_PART))
 
@@ -161,6 +161,7 @@ int part_rope(enum PartType type, struct Part *p1, struct Part *p2, int rope_slo
 s16 part_mass(enum PartType type);
 s16 part_bounciness(enum PartType type);
 s16 part_friction(enum PartType type);
+u16 part_order(enum PartType type);
 s16 part_acceleration(enum PartType type);
 s16 part_terminal_velocity(enum PartType type);
 struct Data31Field0x14** part_data31_field_0x14(enum PartType type);

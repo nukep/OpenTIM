@@ -6,14 +6,63 @@
 u16 arctan(s32 dx, s32 dy);
 u16 rope_calculate_flags(struct RopeData *rope, int param_2, int param_3);
 
+/* TIMWIN: 10a8:1e46 */
+static inline void insert_part_into_root(struct Part *part, struct Part *root) {
+    struct Part *curpart = root;
+
+    while (1) {
+        if (!curpart->next) {
+            break;
+        }
+
+        if (root == &PARTS_BIN_ROOT) {
+            if (part_order(part->type) < part_order(curpart->next->type)) {
+                break;
+            }
+        } else if (part_mass(part->type) == part_mass(curpart->next->type)) {
+            if (curpart->type == P_ROPE_SEVERED_END || curpart->type == P_ROPE) {
+                break;
+            }
+            if (part->type == P_ROPE_SEVERED_END || part->type == P_ROPE) {
+                break;
+            }
+            if (curpart->next->original_pos_y < part->original_pos_y) {
+                break;
+            } else if (curpart->next->original_pos_y == part->original_pos_y && curpart->next->original_pos_x < part->original_pos_x) {
+                break;
+            }
+        } else if (root == &MOVING_PARTS_ROOT) {
+            if (part_mass(part->type) < part_mass(curpart->next->type)) {
+                break;
+            }
+        } else {
+            break;
+        }
+
+        curpart = curpart->next;
+    }
+
+    part->next = curpart->next;
+    part->prev = curpart;
+    curpart->next = part;
+    if (part->next) {
+        part->next->prev = part;
+    }
+}
+
 /* Partial from TIMWIN: 10a8:1e46 */
 void insert_part_into_static_parts(struct Part *part) {
-    // UNIMPLEMENTED
+    return insert_part_into_root(part, &STATIC_PARTS_ROOT);
 }
 
 /* Partial from TIMWIN: 10a8:1e46 */
 void insert_part_into_moving_parts(struct Part *part) {
-    // UNIMPLEMENTED
+    return insert_part_into_root(part, &MOVING_PARTS_ROOT);
+}
+
+/* Partial from TIMWIN: 10a8:1e46 */
+void insert_part_into_parts_bin(struct Part *part) {
+    return insert_part_into_root(part, &PARTS_BIN_ROOT);
 }
 
 /* TIMWIN: 10a8:4d2d */
@@ -68,14 +117,14 @@ void part_set_size(struct Part *part);
 
 /* TIMWIN: 10a8:2485 */
 struct Part* get_first_part(int choice) {
-    if (STATIC_PARTS_START && (choice & CHOOSE_STATIC_PART)) {
-        return STATIC_PARTS_START;
+    if (STATIC_PARTS_ROOT.next && (choice & CHOOSE_STATIC_PART)) {
+        return STATIC_PARTS_ROOT.next;
     }
-    if (MOVING_PARTS_START && (choice & CHOOSE_MOVING_PART)) {
-        return MOVING_PARTS_START;
+    if (MOVING_PARTS_ROOT.next && (choice & CHOOSE_MOVING_PART)) {
+        return MOVING_PARTS_ROOT.next;
     }
-    if (PARTS_BIN_START && (choice & CHOOSE_FROM_PARTS_BIN)) {
-        return PARTS_BIN_START;
+    if (PARTS_BIN_ROOT.next && (choice & CHOOSE_FROM_PARTS_BIN)) {
+        return PARTS_BIN_ROOT.next;
     }
     return 0;
 }
@@ -89,7 +138,7 @@ struct Part* next_part_or_fallback(struct Part *part, int choice) {
         return get_first_part(choice);
     }
     if (ANY_FLAGS(part->flags1, 0x1000) && (choice & CHOOSE_FROM_PARTS_BIN)) {
-        return PARTS_BIN_START;
+        return PARTS_BIN_ROOT.next;
     }
     return 0;
 }
