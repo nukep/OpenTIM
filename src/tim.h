@@ -82,6 +82,8 @@ struct Part* next_part_or_fallback(struct Part *part, int choice);
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
+#define SWAP(a, b) { typeof(a) tmp = a; a = b; b = tmp; }
+
 // Return true if b is between a and c (exclusive).
 #define BETWEEN_EXCL(a, b, c) (((a) < (b)) && ((b) < (c)))
 // Return true if b is between a and c (inclusive).
@@ -157,6 +159,8 @@ void part_reset(struct Part *part);
 int part_bounce(enum PartType type, struct Part *part);
 int part_rope(enum PartType type, struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force);
 s16 part_mass(enum PartType type);
+s16 part_bounciness(enum PartType type);
+s16 part_friction(enum PartType type);
 s16 part_acceleration(enum PartType type);
 s16 part_terminal_velocity(enum PartType type);
 struct Data31Field0x14** part_data31_field_0x14(enum PartType type);

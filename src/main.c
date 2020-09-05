@@ -1495,19 +1495,276 @@ void bucket_move_contained(struct Part *bucket) {
     }
 }
 
+/* TIMWIN: 1090:05f8 */
+static inline void check_play_bowling_ball_impact_sound(struct Part *part) {
+    if (part->type == P_BOWLING_BALL) {
+        if (abs(part->vel_hi_precision.x) + abs(part->vel_hi_precision.y) > 0x1000) {
+            play_sound(0x14);
+        }
+    }
+}
+
+/* TIMWIN: 10a8:0328 */
+static inline u16 stub_10a8_0328(struct Part *a, struct Part *b) {
+    return arctan((a->pos.x + a->size.x/2) - (b->pos.x + b->size.x/2),
+                  (b->pos.y + b->size.y/2) - (a->pos.y + a->size.y/2));
+}
+
 /* TIMWIN: 1090:0809 */
 void stub_1090_0809(struct Part *part) {
-    // UNIMPLEMENTED
+    // I think this function is called on bounce impact?
+
+    check_play_bowling_ball_impact_sound(part);
+
+    struct Part *bounce_part = part->bounce_part;
+    part->flags1 |= 0x0008;
+    bounce_part->flags1 |= 0x0008;
+
+    s16 part_m = part_mass(part->type);
+    s16 bounce_part_m = part_mass(bounce_part->type);
+
+    s16 x1 = part->vel_hi_precision.x;
+    s16 y1 = part->vel_hi_precision.y;
+    s16 x2 = bounce_part->vel_hi_precision.x;
+    s16 y2 = bounce_part->vel_hi_precision.y;
+
+    u16 angle = stub_10a8_0328(part, bounce_part) + 0xC000;
+
+    rotate_point(&x1, &y1, angle);
+    rotate_point(&x2, &y2, angle);
+
+    s32 total_mass = part_m + bounce_part_m;
+
+    s32 lvar4 = part_m*x1;
+    s32 lvar5 = bounce_part_m*x2;
+    s32 lvar6 = bounce_part_m*x1;
+    s32 lvar7 = part_m*x2;
+
+    x1 = ((lvar4 + lvar5*2) - lvar6) / total_mass;
+    x2 = ((lvar5 + lvar4*2) - lvar7) / total_mass;
+    rotate_point(&x1, &y1, -angle);
+    rotate_point(&x2, &y2, -angle);
+
+    part->vel_hi_precision.x = x1/2;
+    part->vel_hi_precision.y = y1/2;
+    bounce_part->vel_hi_precision.x = x2/2;
+    bounce_part->vel_hi_precision.y = y2/2;
+
+    bool somebool = 0;
+
+    if (abs(part->vel_hi_precision.x) < 0x100 && abs(bounce_part->vel_hi_precision.x) < 0x100) {
+        somebool = 1;
+    }
+
+    if (ANY_FLAGS(part->flags1, 0x0001)) {
+        somebool = 1;
+    }
+
+    if (abs(part->vel_hi_precision.y) < abs(part->vel_hi_precision.x)) {
+        somebool = 0;
+    }
+
+    if (ANY_FLAGS(part->flags3, 0x0010)) {
+        somebool = 1;
+    }
+
+    if (somebool) {
+        if ((part->pos.x + part->size.x/2) < (bounce_part->pos.x + bounce_part->size.x/2)) {
+            if (part->vel_hi_precision.x > -0x400) {
+                part->vel_hi_precision.x = -0x400;
+            }
+            if (NO_FLAGS(part->flags3, 0x0010) && bounce_part->vel_hi_precision.x < 0x400) {
+                bounce_part->vel_hi_precision.x = 0x400;
+            }
+        } else {
+            if (part->vel_hi_precision.x < 0x400) {
+                part->vel_hi_precision.x = 0x400;
+            }
+            if (NO_FLAGS(part->flags3, 0x0010) && (bounce_part->vel_hi_precision.x > -0x400)) {
+                bounce_part->vel_hi_precision.x = -0x400;
+            }
+        }
+    }
+
+    part_clamp_to_terminal_velocity(part);
+    part_clamp_to_terminal_velocity(bounce_part);
+
+    if (part->vel_hi_precision.x < 0) {
+        part->pos_x_hi_precision = part->pos.x * 512;
+    } else {
+        part->pos_x_hi_precision = (part->pos.x + 1)*512 - 1;
+    }
+
+    if (part_acceleration(part->type) < 0) {
+        part->pos_y_hi_precision = part->pos.y * 512;
+    } else {
+        part->pos_y_hi_precision = (part->pos.y + 1)*512 - 1;
+    }
+
+    if (bounce_part->vel_hi_precision.x < 0) {
+        bounce_part->pos_x_hi_precision = bounce_part->pos.x * 512;
+    } else {
+        bounce_part->pos_x_hi_precision = (bounce_part->pos.x + 1)*512 - 1;
+    }
+
+    if (part_acceleration(bounce_part->type) < 0) {
+        bounce_part->pos_y_hi_precision = bounce_part->pos.y * 512;
+    } else {
+        bounce_part->pos_y_hi_precision = (bounce_part->pos.y + 1)*512 - 1;
+    }
 }
 
 /* TIMWIN: 1090:0644 */
 void stub_1090_0644(struct Part *part) {
-    // UNIMPLEMENTED
+    check_play_bowling_ball_impact_sound(part);
+
+    u16 angle = part->bounce_angle;
+    if (angle == 0 || angle == 0x8000) {
+        if (part->bounce_field_0x86[0] == 0) {
+            angle += 0x1000;
+        } else if (part->bounce_field_0x86[1] == 0) {
+            angle -= 0x1000;
+        }
+    }
+
+    s16 x1 = part->vel_hi_precision.x;
+    s16 y1 = part->vel_hi_precision.y;
+    rotate_point(&x1, &y1, angle);
+
+    s16 part_bou = MIN(part_bounciness(part->bounce_part->type), part_bounciness(part->type));
+
+    if (part->type == P_SUPER_BALL && part_bou > 0x7f) {
+        part_bou = part_bounciness(part->type);
+    }
+
+    if (part_friction(part->type) == 0) {
+        y1 = -y1;
+    } else {
+        s32 v = -((s32)(y1 * part_bou) / 256);
+
+        if (v < 0) {
+            y1 = v + 0x40;
+            if (y1 >= 0) {
+                y1 = 0;
+            }
+        } else {
+            y1 = v - 0x40;
+            if (y1 <= 0) {
+                y1 = 0;
+            }
+        }
+    }
+
+    rotate_point(&x1, &y1, -angle);
+    part->vel_hi_precision.x = x1;
+    part->vel_hi_precision.y = y1;
+    part_clamp_to_terminal_velocity(part);
+
+    if (x1 < 0) {
+        part->pos_x_hi_precision = part->pos.x * 512;
+    } else {
+        part->pos_x_hi_precision = (part->pos.x + 1)*512 - 1;
+    }
+
+    if (part_acceleration(part->type) < 0) {
+        part->pos_y_hi_precision = part->pos.y * 512;
+    } else {
+        part->pos_y_hi_precision = (part->pos.y + 1)*512 - 1;
+    }
 }
 
 /* TIMWIN: 1090:033f */
 void stub_1090_033f(struct Part *part) {
-    // UNIMPLEMENTED
+    struct Part *bounce_part = part->bounce_part;
+
+    s16 part_accel = part_acceleration(part->type);
+    u16 angle = part->bounce_angle;
+    if (angle == 0 || angle == 0x8000) {
+        if (part->bounce_field_0x86[0] == 0) {
+            angle += 0x1000;
+        } else if (part->bounce_field_0x86[1] == 0) {
+            angle -= 0x1000;
+        }
+    }
+
+    s16 friction;
+    if (bounce_part->type == P_CONVEYOR && bounce_part->state2 != 0) {
+        friction = 0x100;
+    } else {
+        friction = part_friction(part->type);
+        if (part_friction(bounce_part->type) >= friction) {
+            friction = part_friction(bounce_part->type);
+        }
+    }
+
+    s16 c = cosine(-angle);
+    s16 s = sine(-angle);
+
+    s16 tmp2;
+    if ((part->vel_hi_precision.x <= 0 || (s16)angle <= 0) && (part->vel_hi_precision.x >= 0 || (s16)angle >= 0)) {
+        tmp2 = 0;
+    } else {
+        tmp2 = abs(((s32)(s*part->vel_hi_precision.x)) >> 0xe);
+    }
+
+    s32 tmp4 = abs(((c * abs(part_accel)) >> 0xe) + tmp2);
+    tmp4 = tmp4 * friction;
+    tmp4 = c * (s16)(((u32)tmp4) >> 8);
+
+    s16 tmp6;
+    if (NO_FLAGS(part->flags1, 0x0020)) {
+        tmp6 = abs(tmp4 >> 0xe) + 2;
+    } else {
+        tmp6 = abs(tmp4 >> 0xe) + 32;
+    }
+
+    tmp4 = (s16)((s*abs(part_accel)) >> 0xe) * abs(c);
+
+    s16 part_vel_x_hi = part->vel_hi_precision.x + (s16)(tmp4 >> 0xe);
+    if (part_vel_x_hi < 0) {
+        part_vel_x_hi += tmp6;
+        if (part_vel_x_hi >= 0) {
+            part_vel_x_hi = 0;
+        }
+    } else {
+        part_vel_x_hi -= tmp6;
+        if (part_vel_x_hi <= 0) {
+            part_vel_x_hi = 0;
+        }
+    }
+
+    part->vel_hi_precision.x = part_vel_x_hi;
+
+    if (((angle + 0x4000) & 0x8000) == 0) {
+        part->vel_hi_precision.y = (sine(-angle) * part_vel_x_hi) >> 0xe;
+    } else {
+        part->vel_hi_precision.y = (sine(-angle) * -part_vel_x_hi) >> 0xe;
+    }
+
+    part_clamp_to_terminal_velocity(part);
+
+    if (part_accel < 0) {
+        part->pos_y_hi_precision = part->pos.y * 512;
+    } else {
+        part->pos_y_hi_precision = (part->pos.y + 1)*512 - 1;
+    }
+}
+
+struct GDIRect {
+    s16 left;
+    s16 top;
+    s16 right;
+    s16 bottom;
+};
+
+/* TIMWIN: 1020:02ba */
+bool calculate_intersecting_rect(struct GDIRect *out, struct GDIRect *a, struct GDIRect *b) {
+    out->left   = MAX(a->left,   b->left);
+    out->right  = MIN(a->right,  b->right);
+    out->top    = MAX(a->top,    b->top);
+    out->bottom = MIN(a->bottom, b->bottom);
+
+    return (out->left < out->right) && (out->top < out->bottom);
 }
 
 /* TIMWIN: 10a8:21cb */
@@ -1523,6 +1780,69 @@ void stub_10a8_2b6d(struct Part *part, int c) {
     // UNIMPLEMENTED
 }
 
+/* TIMWIN: 10a8:4690 */
+void part_set_prev_vars(struct Part *part) {
+    part->pos_prev2 = part->pos_prev1;
+    part->pos_prev1 = part->pos;
+
+    part->pos_render_prev2 = part->pos_render_prev1;
+    part->pos_render_prev1 = part->pos_render;
+
+    part->size_prev2 = part->size_prev1;
+    part->size_prev1 = part->size;
+
+    part->state1_prev2 = part->state1_prev1;
+    part->state1_prev1 = part->state1;
+
+    if (part->type == P_BELT && LEVEL_STATE == DESIGN_MODE) {
+        struct BeltData *belt = part->belt_data;
+
+        belt->pos1_prev2 = belt->pos1_prev1;
+        belt->pos1_prev1 = belt->pos1;
+
+        belt->pos2_prev2 = belt->pos2_prev1;
+        belt->pos2_prev1 = belt->pos2;
+
+        belt->pos3_prev2 = belt->pos3_prev1;
+        belt->pos3_prev1 = belt->pos3;
+
+        belt->pos4_prev2 = belt->pos4_prev1;
+        belt->pos4_prev1 = belt->pos4;
+    }
+
+    if (part->type == P_ROPE || part->type == P_PULLEY) {
+        struct RopeData *rope = part->rope_data[0];
+
+        rope->rope_unknown_prev2 = rope->rope_unknown_prev1;
+        rope->rope_unknown_prev1 = rope->rope_unknown;
+
+        rope->ends_pos_prev2[0] = rope->ends_pos_prev1[0];
+        rope->ends_pos_prev1[0] = rope->ends_pos[0];
+
+        rope->ends_pos_prev2[1] = rope->ends_pos_prev1[1];
+        rope->ends_pos_prev1[1] = rope->ends_pos[1];
+    }
+
+    part->extra1_prev2 = part->extra1_prev1;
+    part->extra1_prev1 = part->extra1;
+
+    part->extra2_prev2 = part->extra2_prev1;
+    part->extra2_prev1 = part->extra2;
+}
+
+/* TIMWIN: 10a8:4645 */
+void all_parts_set_prev_vars() {
+    if (SELECTED_PART) {
+        part_set_prev_vars(SELECTED_PART);
+    }
+
+    EACH_STATIC_THEN_MOVING_PART(part) {
+        if (part != SELECTED_PART) {
+            part_set_prev_vars(part);
+        }
+    }
+}
+
 /* TIMWIN: 10a8:36f0 */
 void stub_10a8_36f0(struct Part *part) {
     stub_10a8_21cb(part, 1);
@@ -1530,6 +1850,81 @@ void stub_10a8_36f0(struct Part *part) {
     if (part->type != P_ROPE_SEVERED_END) {
         stub_10a8_2b6d(part, 1);
     }
+}
+
+/* TIMWIN: 10a8:078e */
+void stub_10a8_078e(struct RopeData *rope) {
+    struct Part *part = rope->part1->links_to[rope->part1_rope_slot];
+
+    while (part && part->type == P_PULLEY) {
+        SWAP(part->links_to[0], part->links_to[1]);
+
+        part->links_to_design[0] = part->links_to[0];
+        part->links_to_design[1] = part->links_to[1];
+
+        SWAP(part->rope_loc[0], part->rope_loc[1]);
+
+        struct RopeData *rd0 = part->rope_data[0];
+        SWAP(rd0->ends_pos[0], rd0->ends_pos[1]);
+        SWAP(rd0->ends_pos_prev1[0], rd0->ends_pos_prev1[1]);
+        SWAP(rd0->ends_pos_prev2[0], rd0->ends_pos_prev2[1]);
+
+        part = part->links_to[1];
+    }
+
+    SWAP(rope->part1, rope->part2);
+    rope->original_part1 = rope->part1;
+    rope->original_part2 = rope->part2;
+
+    SWAP(rope->part1_rope_slot, rope->part2_rope_slot);
+    rope->original_part1_rope_slot = rope->part1_rope_slot;
+    rope->original_part2_rope_slot = rope->part2_rope_slot;
+
+    stub_10a8_2b6d(rope->rope_or_pulley_part, 3);
+}
+
+/* TIMWIN: 10a8:0880 */
+struct Part* stub_10a8_0880(struct Part *a, struct Part *b) {
+    // UNIMPLEMENTED
+    return 0;
+}
+
+/* TIMWIN: 10a8:0ab8 */
+struct Part* stub_10a8_0ab8(struct Part *part) {
+    if (part && NO_FLAGS(part->flags3, 0x0040)) {
+        struct Part *p = stub_10a8_0880(part, part);
+        if (p) {
+            return p;
+        }
+    }
+
+    struct Part *anotherpart = 0;
+
+    EACH_STATIC_THEN_MOVING_PART(curpart) {
+        struct Part *somepart = stub_10a8_0880(part, curpart);
+        if (part) {
+            if (ANY_FLAGS(somepart->flags1, 0x8000)) {
+                continue;
+            }
+        }
+
+        if (somepart) {
+            anotherpart = somepart;
+            if (NO_FLAGS(somepart->flags1, 0x8000) && NO_FLAGS(somepart->flags3, 0x0040)) {
+                return somepart;
+            }
+        }
+    }
+
+    if (anotherpart) {
+        return anotherpart;
+    }
+
+    if (SELECTED_PART && SELECTED_PART->type == P_ROPE) {
+        return 0;
+    }
+
+    return part;
 }
 
 /* TIMWIN: 1080:1464 */
@@ -1651,5 +2046,26 @@ void advance_parts() {
         } else {
             stub_10a8_36f0(part);
         }
+    }
+}
+
+TEST_SUITE(helpers) {
+    TEST("swap, ByteVec") {
+        struct ByteVec a = { 5, 10 };
+        struct ByteVec b = { 35, 255 };
+
+        SWAP(a, b);
+
+        ASSERT_EQ(a.x, 35);
+        ASSERT_EQ(a.y, 255);
+        ASSERT_EQ(b.x, 5);
+        ASSERT_EQ(b.y, 10);
+
+        SWAP(a, b);
+
+        ASSERT_EQ(a.x, 5);
+        ASSERT_EQ(a.y, 10);
+        ASSERT_EQ(b.x, 35);
+        ASSERT_EQ(b.y, 255);
     }
 }

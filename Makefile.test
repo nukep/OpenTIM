@@ -9,7 +9,7 @@ tim: $(OBJFILES)
 	clang -O2 -lm $^ -o $@
 
 %.o: %.c
-	clang -O2 -Wall -Wextra -DENABLE_TEST_SUITE $^ -c -o $@
+	clang -O2 -Wall -Wextra -Wno-unused-parameter -DENABLE_TEST_SUITE $^ -c -o $@
 
 src/generated/structs.h: $(CSVFILES)
 	python3 scripts/generate-structs.py > $@

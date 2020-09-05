@@ -118,8 +118,25 @@ s16 part_mass(enum PartType type) {
     return def->mass;
 }
 
+s16 part_bounciness(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_bounciness - def not found");
+        return 0;
+    }
 
+    return def->bounciness;
+}
 
+s16 part_friction(enum PartType type) {
+    struct PartDef *def = part_def(type);
+    if (!def) {
+        TRACE_ERROR("part_friction - def not found");
+        return 0;
+    }
+
+    return def->friction;
+}
 
 
 int default_bounce(struct Part *part) {
