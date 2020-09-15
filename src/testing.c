@@ -47,6 +47,7 @@ int main(int argc, char *argv[]) {
     RUNTEST(acceleration_and_terminal_velocity);
     RUNTEST(sine);
     RUNTEST(helpers);
+    RUNTEST(lzw_decode);
 
     printf("%d/%d tests passed.\n", tests_passed, tests_total);
 
