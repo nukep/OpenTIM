@@ -1,10 +1,9 @@
-#include "tim.h"
+#include "int.h"
+#include "testing.h"
 #include <stdlib.h>
 #include <stddef.h>
 
 #define WARN_UNUSED __attribute__ ((warn_unused_result))
-
-typedef unsigned char u8;
 
 // Adapted from ScummVM (licensed GPL v2 or greater):
 // https://github.com/scummvm/scummvm/blob/d11c61db1466d79ef6253814a86b04950b499ec3/engines/sci/decompressor.cpp
@@ -51,7 +50,6 @@ static inline int lzw_decode_impl(struct LzwDecodeBuffers *buffers, void *read_c
     s32 endtoken = 0x1ff;
 
     u32 subbit = 0;
-    char *out_ptr = out;
     size_t out_off = 0;
 
     char **tokenlist     = buffers->tokenlist;
@@ -73,7 +71,7 @@ static inline int lzw_decode_impl(struct LzwDecodeBuffers *buffers, void *read_c
             if (sb > 0) {
                 u32 r = (8*16) - sb;
                 IN(r%8);
-                for (int i = 0; i < r/8; i++) {
+                for (u32 i = 0; i < r/8; i++) {
                     IN(8);
                 }
             }
@@ -112,7 +110,6 @@ static inline int lzw_decode_impl(struct LzwDecodeBuffers *buffers, void *read_c
         }
     }
 
-successful:
     *decoded_size = out_off;
     return LZW_OK;
 }

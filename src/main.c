@@ -2098,6 +2098,7 @@ void advance_parts() {
     }
 }
 
+#if ENABLE_TEST_SUITE
 TEST_SUITE(helpers) {
     TEST("swap, ByteVec") {
         struct ByteVec a = { 5, 10 };
@@ -2118,3 +2119,4 @@ TEST_SUITE(helpers) {
         ASSERT_EQ(b.y, 255);
     }
 }
+#endif
