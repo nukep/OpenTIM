@@ -70,6 +70,6 @@ IMPL(u16, cast_16_impl)
 IMPL(s32, cast_32_impl)
 IMPL(u32, cast_32_impl)
 
-#undef F
+#undef IMPL
 
 #endif
