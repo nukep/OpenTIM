@@ -11,15 +11,7 @@
 // Do nothing
 #define TRACE_ERROR(message) 0
 
-/* TIM was originally written for 16-bit architectures.
-   Our primary "int" type is therefore 16-bit. */
-typedef unsigned char byte;
-typedef signed char sbyte;
-typedef unsigned short u16;
-typedef signed short s16;
-typedef unsigned int u32;
-typedef signed int s32;
-typedef int bool;
+#include "int.h"
 
 struct ByteVec {
     byte x, y;
@@ -44,7 +36,7 @@ struct BorderPoint {
 
 enum Flags1_Flags {
     // TODO - put flags here
-    F1_placeholder
+    F1_EPHEMERAL = 0x0010,         // part despawns when we quit the simulation (e.g. bullets, rope fragments)
 };
 
 enum Flags2_Flags {
