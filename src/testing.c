@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
     RUNTEST(sine);
     RUNTEST(helpers);
     RUNTEST(lzw_decode);
+    RUNTEST(lzhuf_decode);
 
     printf("%d/%d tests passed.\n", tests_passed, tests_total);
 
