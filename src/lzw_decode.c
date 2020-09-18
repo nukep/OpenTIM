@@ -1,9 +1,7 @@
 #include "int.h"
 #include "testing.h"
 #include <stdlib.h>
-#include <stddef.h>
-
-#define WARN_UNUSED __attribute__ ((warn_unused_result))
+#include "lzw_decode.h"
 
 // Adapted from ScummVM (licensed GPL v2 or greater):
 // https://github.com/scummvm/scummvm/blob/d11c61db1466d79ef6253814a86b04950b499ec3/engines/sci/decompressor.cpp
@@ -11,19 +9,6 @@
 // This LZW decompression algorithm is subtlely different from other Sierra games.
 // 1) The length 2+ dictionary starts at 0x101 instead of 0x102.
 // 2) The reset command aligns the read stream to a 16-byte boundary.
-
-#define LZW_ERRORS \
-    X(LZW_ERROR_DICTIONARY_FULL, -4) \
-    X(LZW_ERROR_INSUFFICIENT_OUTPUT, -3) \
-    X(LZW_ERROR_NO_MORE_INPUT, -2) \
-    X(LZW_ERROR_BAD_TOKEN, -1) \
-    X(LZW_OK, 0)
-
-#define X(error, code) error = code,
-enum LzwErrors {
-    LZW_ERRORS
-};
-#undef X
 
 char *lzw_errstr(int error_code) {
     #define X(error, code) if (error_code == code) { return #error; }
@@ -154,7 +139,10 @@ static int bit_reader_is_eof(void *_read_ctx) {
     return ctx->bit_off/8 >= ctx->buf_size;
 }
 
-WARN_UNUSED
+size_t lzw_decode_buffers_size() {
+    return sizeof(struct LzwDecodeBuffers);
+}
+
 int lzw_decode(struct LzwDecodeBuffers *buffers, const char *in, size_t in_size, char *out, size_t out_size, size_t *decoded_size) {
     struct BitReaderContext ctx = { .bit_off = 0, .buf = in, .buf_size = in_size };
     return lzw_decode_impl(buffers, &ctx, bit_reader, bit_reader_is_eof, out, out_size, decoded_size);
