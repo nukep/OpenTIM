@@ -10,14 +10,6 @@
 // 1) The length 2+ dictionary starts at 0x101 instead of 0x102.
 // 2) The reset command aligns the read stream to a 16-byte boundary.
 
-char *lzw_errstr(int error_code) {
-    #define X(error, code) if (error_code == code) { return #error; }
-    LZW_ERRORS
-    #undef X
-
-    return "Unknown error code";
-}
-
 #define IN(n) read_bits(read_ctx, n); subbit = (subbit+n);
 #define OUT(v) if (out_off >= out_size) { return LZW_ERROR_INSUFFICIENT_OUTPUT; } out[out_off] = v; out_off++;
 

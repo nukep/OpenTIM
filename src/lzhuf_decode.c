@@ -34,14 +34,6 @@
 #include "int.h"
 #include "testing.h"
 
-const char *lzhuf_errstr(int error_code) {
-    #define X(error, code) if (error_code == code) { return #error; }
-    LZHUF_ERRORS
-    #undef X
-
-    return "Unknown error code";
-}
-
 #define N           4096                    // Buffer size
 #define F           60                      // Lookahead buffer size
 #define THRESHOLD   2
@@ -342,7 +334,6 @@ size_t lzhuf_decode_buffers_size() {
     return sizeof(struct LzhufDecodeBuffers);
 }
 
-WARN_UNUSED
 int lzhuf_decode(struct LzhufDecodeBuffers *buffers, const char *in, size_t in_size, char *out, size_t out_size, size_t *decoded_size) {
     struct BitReaderContext ctx = { .bit_off = 0, .buf = in, .buf_size = in_size };
     return lzhuf_decode_impl(buffers, &ctx, bit_reader, out, out_size, decoded_size);
