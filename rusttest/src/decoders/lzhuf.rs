@@ -8,7 +8,15 @@
     comments translated by Haruhiko Okumura 1989/04/07
 **************************************************************/
 
-type LzhufResult<T> = Result<T, &'static str>;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum LzhufError {
+    #[error("Output buffer ran out of space")]
+    NoMoreOutput
+}
+
+type LzhufResult<T> = Result<T, LzhufError>;
 
 const N: usize = 4096;
 const F: usize = 60;
@@ -309,7 +317,7 @@ impl<'a> BitMsbReader<'a> {
     fn read_bits(&mut self, n_bits: u8) -> u8 {
         let mut val = 0;
 
-        for i in 0..n_bits {
+        for _ in 0..n_bits {
             let byte_off = self.bit_off / 8;
             let bit = self.bit_off % 8;
 
@@ -353,7 +361,7 @@ mod tests {
     }
 }
 
-pub fn decode(b: &mut Buffers, buf: &[u8], out: &mut [u8]) -> LzhufResult<usize> {
+pub fn decode<'a>(buf: &[u8], out: &'a mut [u8]) -> LzhufResult<&'a [u8]> {
     let mut bit_reader = BitMsbReader {
         bit_off: 0,
         buf: buf
@@ -362,14 +370,21 @@ pub fn decode(b: &mut Buffers, buf: &[u8], out: &mut [u8]) -> LzhufResult<usize>
     let out_len = out.len();
     let mut out_off = 0;
 
-    decode_impl(
-        b,
+    let mut b = Buffers::new();
+
+    let decoded_size = decode_impl(
+        &mut b,
         |n_bits| bit_reader.read_bits(n_bits),
         |v| {
+            if out_off >= out.len() {
+                return Err(LzhufError::NoMoreOutput);
+            }
             out[out_off] = v;
             out_off += 1;
             Ok(())
         },
         out_len
-    )
+    )?;
+
+    Ok(&out[0..decoded_size])
 }

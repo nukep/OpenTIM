@@ -87,9 +87,9 @@ fn decode_buf<W>(buf: &[u8], plot: W) -> BmpScnResult<()>
     )
 }
 
-pub fn decode_rgba8(buf: &[u8], out: &mut [u8], stride: i32, pal: &[[u8;4];256]) -> BmpScnResult<()> {
+pub fn decode_rgba8(buf: &[u8], out: &mut [u8], stride: usize, pal: &[[u8;4];256]) -> BmpScnResult<()> {
     decode_buf(buf, |x, y, v| {
-        let off = (x*4 + y*stride) as usize;
+        let off = (x as usize)*4 + (y as usize)*stride;
         out[off..off+4].copy_from_slice(&pal[v as usize]);
     })
 }
