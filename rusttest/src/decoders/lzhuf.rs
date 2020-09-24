@@ -339,6 +339,7 @@ impl<'a> BitMsbReader<'a> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     macro_rules! check_expecteds {
         ($n:expr, $a:expr, $b:expr) => {

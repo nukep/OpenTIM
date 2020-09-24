@@ -13,7 +13,6 @@ Hashes, checksums for TEMIM.EXE:
 * SHA1: a42242f504d3101f973711636ff0bcbf5851a772
 * SHA256: 03d56a132ff7c987488c6d28cc6ba9c4a28b6f9d085c53a3c5a0bfdd14e49e35
 
-The Windows version is unfortunately harder to find, which undermines collaboration. If anyone can reverse-engineer the DOS version as sold on GOG, any help would be appreciated.
 
 ## Runtime analysis: DOSBoxX
 

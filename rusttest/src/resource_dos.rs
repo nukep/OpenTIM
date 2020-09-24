@@ -33,8 +33,8 @@ fn read_header<'a, I: io::Read>(f: &mut I, name_buf: &'a mut [u8; CHUNK_NAME_SIZ
     Ok((name, payload_size))
 }
 
-// Scan the resource file for entries until EOF is reached
-// May be an acceptable alternative in case the .MAP file is missing or corrupted
+/// Scan the resource file for entries until EOF is reached
+/// May be an acceptable alternative in case the .MAP file is missing or corrupted
 fn scan_resource_file_entries<'a, I: io::Read+io::Seek, F>(f: &mut I, mut handle: F) -> io::Result<()>
     where F: FnMut(&str, u32, i64)
 {
@@ -71,8 +71,6 @@ fn scan_resource_map_file<I: io::Read, E, F, G, T>(f: &mut I, mut on_resource_na
           F: FnMut(&mut T, u32, u32),
           G: FnMut(&str, T)
 {
-    let mut name_buf = [0; CHUNK_NAME_SIZE];
-
     let mut hash_string_indexes_buf = [0; 4];
     f.read_exact(&mut hash_string_indexes_buf)?;
 
@@ -122,7 +120,7 @@ fn uppercase(c: u8) -> u8 {
     }
 }
 
-// Return a slice that comes right after the last backslash (\) or colon (:), if it exists
+/// Return a slice that comes right after the last backslash (\) or colon (:), if it exists
 fn hash_file_strip_chars(s: &[u8]) -> &[u8] {
     let mut idx = 0;
     for (i, &c) in s.iter().enumerate() {
@@ -135,7 +133,6 @@ fn hash_file_strip_chars(s: &[u8]) -> &[u8] {
 }
 
 // Credit for initial reading: http://www.shikadi.net/moddingwiki/TIM_Resource_Format
-// TEMIM_DOS: 0824:A465
 pub fn hash_filename(hash_indexes: &[u8;4], s_raw: &[u8]) -> u32 {
     let s = hash_file_strip_chars(s_raw);
 
@@ -231,7 +228,7 @@ pub fn from_map(root_directory: &str, map_filename: &str) -> io::Result<Resource
     for (resource_id, (resource_name, entries)) in resource_file_entries.into_iter().enumerate() {
         let path = Path::new(root_directory).join(resource_name);
         let mut f = File::open(path)?;
-        for (hash, offset) in entries {
+        for (_hash, offset) in entries {
             f.seek(io::SeekFrom::Start(offset as u64))?;
             let (name, payload_size) = read_header(&mut f, &mut name_buf)?;
             
@@ -257,7 +254,6 @@ pub fn parse_tags<'a, F>(buf: &'a [u8], mut on_tag: F)
     where F: FnMut(&str, &'a [u8])
 {
     let mut buf = buf;
-    let tag_buf = [0; 4];
     while buf.len() >= 8 {
         let tag_buf = &buf[0..4];
         if tag_buf[3] != 0x3A {
@@ -331,8 +327,8 @@ pub struct BmpScnSlice<'a> {
     pub scn: &'a [u8]
 }
 
-// Returns a vector of bitmap slices. The bitmap data is not decoded.
-// Note that the "scn" buffer may include more than is needed to decode the bitmap.
+/// Returns a vector of bitmap slices. The bitmap data is not decoded.
+/// Keep in mind that the `scn` buffer in each returned `BmpScnSlice` may include more than is needed to decode the bitmap.
 pub fn parse_bmp_scn(buf: &[u8]) -> Option<Vec<BmpScnSlice>> {
     let mut inf = None;
     let mut scn = None;
@@ -433,6 +429,7 @@ pub fn parse_vga_palette_as_rgba<'a>(buf: &[u8], workbuf: &'a mut [[u8;4];256]) 
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::hash_file_strip_chars;
     use super::hash_filename;

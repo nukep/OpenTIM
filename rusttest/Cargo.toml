@@ -10,5 +10,5 @@ edition = "2018"
 thiserror = "1.0"
 anyhow = "1.0"
 
-[profile.release]
-# panic = "abort"
+[build-dependencies]
+cc = "1.0"

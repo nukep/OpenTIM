@@ -1,21 +1,33 @@
+// For now...
+#![allow(dead_code)]
+
 mod image;
 mod buffer_snake;
 mod debug;
 mod decoders;
 mod resource_dos;
+mod math;
 
-use std::fs::File;
-use std::io::BufWriter;
-use std::io::prelude::*;
-use std::convert::TryInto;
-use std::str;
+extern {
+    fn foo(a: i32, b: i32) -> i32;
+}
+
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let vall = unsafe {
+        foo(1, 2)
+    };
+
+    println!("{}", vall);
+
+    math::print_lookup();
+
     let args: Vec<String> = std::env::args().collect();
     let root_directory = &args[1];
 
     let mut resources = resource_dos::from_map(root_directory, "RESOURCE.MAP")?;
 
+    #[allow(unused_mut)]
     let mut filenames: Vec<String> = resources.iter_filenames().map(|s| s.into()).collect();
     // filenames.sort();
     println!("{:?}", filenames);
