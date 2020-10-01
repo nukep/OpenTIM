@@ -1,5 +1,5 @@
 [package]
-name = "rusttest"
+name = "opentim"
 version = "0.1.0"
 authors = ["Danny Spencer <dan.spencer.np@gmail.com>"]
 edition = "2018"

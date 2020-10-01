@@ -1471,6 +1471,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "260e51e7efe62b592207e9e13a68e43692a7a279171d6ba57abd208bf23645ad"
 
 [[package]]
+name = "opentim"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cc",
+ "nannou",
+ "num_enum 0.5.1",
+ "thiserror",
+]
+
+[[package]]
 name = "ordered-float"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1987,17 +1998,6 @@ name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
-
-[[package]]
-name = "rusttest"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cc",
- "nannou",
- "num_enum 0.5.1",
- "thiserror",
-]
 
 [[package]]
 name = "rusttype"
