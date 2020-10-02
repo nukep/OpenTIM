@@ -1,3 +1,4 @@
+/// TIMWIN: Segment 29
 const ARCTAN_LOOKUP: [u16; 512] = [
      0,   1,   2,   3,   5,   6,   7,   8,  10,  11,  12,  14,  15,  16,  17,  19,
     20,  21,  22,  24,  25,  26,  27,  29,  30,  31,  33,  34,  35,  36,  38,  39,
@@ -33,6 +34,7 @@ const ARCTAN_LOOKUP: [u16; 512] = [
    501, 502, 502, 503, 504, 504, 505, 506, 506, 507, 508, 508, 509, 510, 510, 511,
 ];
 
+/// TIMWIN: 10c8:1943
 const COSINE_LOOKUP: [i16; 2049] = [
     16384,  16383,  16383,  16383,  16383,  16383,  16383,  16383,  16382,  16382,  16382,  16381,  16381,  16380,  16380,  16379,
     16379,  16378,  16377,  16377,  16376,  16375,  16374,  16373,  16372,  16371,  16370,  16369,  16368,  16367,  16366,  16365,
@@ -191,7 +193,7 @@ pub extern fn arctan(dx: i32, dy: i32) -> u16 {
         } else if dy == 0 {
             0
         } else if dx == dy {
-            0x2000
+            0x0200
         } else if dx < dy {
             0x0400 - ARCTAN_LOOKUP.get_unchecked(((dx * 512) / dy) as usize)
         } else {
@@ -258,15 +260,84 @@ pub extern fn rotate_point_c(x: &mut i16, y: &mut i16, angle: u16) {
 mod arctan_tests {
     use super::arctan;
 
+    /// Run each (x, y, expected) with 10,000 extrapolations from the origin.
+    /// Should all return the same angle.
+    macro_rules! run {
+        ($t: expr) => {
+            for i in 1..=10000 {
+                for &(x, y, expected) in $t {
+                    assert_eq!(((i, x, y), arctan(x*i, y*i)), ((i, x, y), expected));
+                }
+            }
+        };
+    }
+
     #[test]
     fn straight_and_diagonal() {
-        for i in 0..10000 {
+        run!(&[( 0,  1, 0x0000),
+               (-1,  1, 0x2000),
+               (-1,  0, 0x4000),
+               (-1, -1, 0x6000),
+               ( 0, -1, 0x8000),
+               ( 1, -1, 0xA000),
+               ( 1,  0, 0xC000),
+               ( 1,  1, 0xE000)]);
+    }
 
-        }
+    #[test]
+    fn slopes_1_2() {
+        // Slopes are 1/2 from quadrants.
+        // (function returns 0x12E0, or 26.543 degrees)
+        run!(&[(-1,  2, 0x12E0),
+               (-2,  1, 0x2D20),
+               (-2, -1, 0x52E0),
+               (-1, -2, 0x6D20),
+               ( 1, -2, 0x92E0),
+               ( 2, -1, 0xAD20),
+               ( 2,  1, 0xD2E0),
+               ( 1,  2, 0xED20)]);
+    }
+
+    #[test]
+    fn slopes_1_10() {
+        // Slopes are 1/10 from quadrants.
+        // (function returns 0x0400, or 5.625 degrees)
+        run!(&[(-1,  10, 0x0400),
+               (-10,  1, 0x3C00),
+               (-10, -1, 0x4400),
+               (-1, -10, 0x7C00),
+               ( 1, -10, 0x8400),
+               ( 10, -1, 0xBC00),
+               ( 10,  1, 0xC400),
+               ( 1,  10, 0xFC00)]);
     }
 
     #[test]
     fn samples() {
+        // arctan (ours) and atan2 (Rust) are both clockwise, but their "0" is different.
+        // arctan(): x=0,y=1 (down) is 0 degrees
+        // atan2():  x=1,y=0 (right) is 0 degrees
+        //
+        // Sample generation code:
+        //
+        // use rand;
+        // for _ in 0..30 {
+        //     let x = rand::random::<i16>();
+        //     let y = rand::random::<i16>();
+    
+        //     let result = math::arctan(x as i32, y as i32);
+    
+        //     let mut r_result = f32::atan2(y as f32, x as f32) / (3.14159265*2.0) - 0.25;
+        //     while r_result < 0.0 {
+        //         r_result += 1.0;
+        //     }
+    
+        //     r_result = (r_result*65536.0).round();
+        //     let error = result as f32 - r_result;
+    
+        //     println!("assert_eq!(arctan({:6}, {:6}), {:6}); // Accurate: {:6.0} (error = {:+3.0}, {:+.02}%, {:+.2} deg)", x, y, result, r_result, error, error*100.0/r_result, error*360.0/65536.0);
+        // }
+
         assert_eq!(arctan( 17767,   9158),  54096); // Accurate:  54116 (error = -20, -0.04%, -0.11 deg)
         assert_eq!(arctan(-26519,  18547),  10032); // Accurate:  10018 (error = +14, +0.14%, +0.08 deg)
         assert_eq!(arctan( -9135,  23807),   3808); // Accurate:   3822 (error = -14, -0.37%, -0.08 deg)
@@ -297,5 +368,111 @@ mod arctan_tests {
         assert_eq!(arctan(  9300, -31215),  35776); // Accurate:  35788 (error = -12, -0.03%, -0.07 deg)
         assert_eq!(arctan(-15346,   7554),  11616); // Accurate:  11613 (error =  +3, +0.03%, +0.02 deg)
         assert_eq!(arctan( -1932, -31167),  32144); // Accurate:  32122 (error = +22, +0.07%, +0.12 deg)
+    }
+}
+
+#[cfg(test)]
+mod sine_tests {
+    use super::sine;
+    use super::cosine;
+    use super::rotate_point;
+
+    #[test]
+    fn sine_cosine_equivalence() {
+        for i in 0..=0xFFFFu16 {
+            assert_eq!(sine(i.wrapping_add(0x4000)), cosine(i));
+        }
+    }
+
+    #[test]
+    fn sine_0_degrees() {
+        assert_eq!(sine(0), 0);
+    }
+
+    #[test]
+    fn sine_45_degrees() {
+        // Note: 0x2D41/0x4000 = approx 0.7071
+        assert_eq!(sine(0x2000), 0x2D41);
+    }
+
+    #[test]
+    fn sine_90_degrees() {
+        assert_eq!(sine(0x4000), 0x4000);
+    }
+
+    #[test]
+    fn sine_180_degrees() {
+        assert_eq!(sine(0x8000), 0);
+    }
+
+    #[test]
+    fn sine_270_degrees() {
+        assert_eq!(sine(0xC000), -0x4000);
+    }
+
+    #[test]
+    fn cos_0_degrees() {
+        assert_eq!(cosine(0), 0x4000);
+    }
+
+    #[test]
+    fn rotate_points() {
+        // 0 degrees
+        assert_eq!(rotate_point(100, 100, 0x0000), (100, 100));
+        // 45 degrees
+        assert_eq!(rotate_point(100, 100, 0x2000), (0, 141));
+        // 90
+        assert_eq!(rotate_point(100, 100, 0x4000), (-100, 100));
+        // 180
+        assert_eq!(rotate_point(100, 100, 0x8000), (-100, -100));
+        // 270
+        assert_eq!(rotate_point(100, 100, 0xC000), (100, -100));
+    }
+
+    #[test]
+    fn rotate_point_samples() {
+        // Sample generation code:
+        //
+        // use rand;
+        // for _ in 0..30 {
+        //     let x = rand::random::<i16>();
+        //     let y = rand::random::<i16>();
+        //     let angle = rand::random::<u16>();
+    
+        //     let result = math::rotate_point(x, y, angle);
+    
+        //     println!("assert_eq!(rotate_point({:6}, {:6}, 0x{:04X}), ({:6}, {:6}));", x, y, angle, result.0, result.1);
+        // }
+
+        assert_eq!(rotate_point( 18483,   -243, 0x192E), ( 15218,  10490));
+        assert_eq!(rotate_point(  7318,  20805, 0x18BB), ( -5834,  21268));
+        assert_eq!(rotate_point( 23320,  22714, 0x2D8C), (-10184,  30918));
+        assert_eq!(rotate_point(   -38,  -1342, 0xBA69), ( -1325,    222));
+        assert_eq!(rotate_point(  8222,  -5629, 0x13D5), (  9898,  -1135));
+        assert_eq!(rotate_point( 15084,  17635, 0xF1B6), ( 20230,  11366));
+        assert_eq!(rotate_point(-12417, -14560, 0xE1F6), (-18982,  -2420));
+        assert_eq!(rotate_point(-19571,  -5157, 0x16CB), (-13866, -14742));
+        assert_eq!(rotate_point(-20747, -30402, 0xB485), (-23421,  28395));
+        assert_eq!(rotate_point( 27938,  -9953, 0x656E), (-16133,  24886));
+        assert_eq!(rotate_point( 19395, -28834, 0x88BA), (-25060,  24075));
+        assert_eq!(rotate_point( -1687,   -962, 0xB5F7), (  -521,   1871));
+        assert_eq!(rotate_point(  8151, -22629, 0xCF3B), (-18108, -15832));
+        assert_eq!(rotate_point(-23849, -15727, 0x1D20), ( -7703, -27509));
+        assert_eq!(rotate_point(-16782, -14328, 0x3B1A), ( 12194, -18390));
+        assert_eq!(rotate_point(  9933,  13642, 0x5A0B), (-16874,   -149));
+        assert_eq!(rotate_point( 22517, -25205, 0x149C), ( 31896, -11175));
+        assert_eq!(rotate_point(-29253, -21275, 0x316A), (  9642,  30675));
+        assert_eq!(rotate_point( 28550, -15865, 0xCB0D), ( -7678, -31748));
+        assert_eq!(rotate_point( -5481,  -5468, 0x294C), (  1733,  -7546));
+        assert_eq!(rotate_point( 31670,  -6191, 0x4816), (  -158,  32268));
+        assert_eq!(rotate_point(-27781,   1621, 0xBF79), (  2005,  27756));
+        assert_eq!(rotate_point( 10917,   9008, 0x54AB), (-13173,   5179));
+        assert_eq!(rotate_point( 13197, -20797, 0xB130), (-24133,  -4939));
+        assert_eq!(rotate_point(-24313, -23085, 0xB420), (-15127,  29922));
+        assert_eq!(rotate_point(-12909,   2644, 0xEBD9), (-10099,   8463));
+        assert_eq!(rotate_point( 13085,  -8737, 0xA17B), (-15314,  -3617));
+        assert_eq!(rotate_point(-31023,  22077, 0x8F58), (-28574,  -9150));
+        assert_eq!(rotate_point(-29246,  27153, 0x549D), ( -9625,  26806));
+        assert_eq!(rotate_point( -1730, -30631, 0x8065), (  1447,  30646));
     }
 }
