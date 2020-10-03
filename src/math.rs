@@ -256,6 +256,52 @@ pub extern fn rotate_point_c(x: &mut i16, y: &mut i16, angle: u16) {
     *y = ny;
 }
 
+/// TIMWIN: 10a8:02dc
+#[inline(always)]
+fn line_intersection_helper(a: i16, b: i16, c: i16) -> bool {
+    let (b, c) = if b > c { (c, b) } else { (b, c) };
+
+    if a < b {
+        false
+    } else {
+        (a - b) <= (c - b)
+    }
+}
+
+/// TIMWIN: 10a8:00c1
+/// Given two lines "a" and "b", calculate the point where the two lines cross.
+///
+/// Returns (true, (x, y)) if there's an intersection.
+/// Returns (false, (x, y)) if there's no intersection. x and y are extrapolated (assuming the two lines are infinite length).
+pub fn line_intersection(a: ((i16, i16), (i16, i16)),
+                         b: ((i16, i16), (i16, i16))) -> (bool, (i16, i16)) {
+    let a_dx = a.0.0 as i32 - a.1.0 as i32;
+    let a_dy = a.0.1 as i32 - a.1.1 as i32;
+    let b_dx = b.1.0 as i32 - b.0.0 as i32;
+    let b_dy = b.1.1 as i32 - b.0.1 as i32;
+
+    let ivar3 = a_dy*a.1.0 as i32 - a_dx*a.1.1 as i32;
+    let ivar4 = b_dy*b.0.0 as i32 - b_dx*b.0.1 as i32;
+    let ivar5 = b_dy*a_dx - b_dx*a_dy;
+
+    let out: (i16, i16);
+    if ivar5 != 0 {
+        out = (((ivar4*a_dx - ivar3*b_dx) / ivar5) as i16,
+               ((ivar4*a_dy - ivar3*b_dy) / ivar5) as i16);
+    } else if b_dy*a.0.0 as i32 + b_dx*a.0.1 as i32 == 0 {
+        out = a.1;
+    } else {
+        out = (0, 0);
+    }
+
+    let intersects = line_intersection_helper(out.0, a.0.0, a.1.0) &&
+                     line_intersection_helper(out.0, b.0.0, b.1.0) &&
+                     line_intersection_helper(out.1, a.0.1, a.1.1) &&
+                     line_intersection_helper(out.1, b.0.1, b.1.1);
+
+    (intersects, out)
+}
+
 #[cfg(test)]
 mod arctan_tests {
     use super::arctan;
