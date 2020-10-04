@@ -50,7 +50,7 @@ fn buffer_snake_test() {
     let mut data = vec![0; 8];
 
     let mut snake = BufferSnake::new(&mut data);
-    assert_eq!(snake.tail(), &[]);
+    assert_eq!(snake.tail(), &[] as &[u8]);
 
     snake.try_write(&[1, 2]);
     snake.try_write(&[3, 4, 5]);

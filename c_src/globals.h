@@ -44,6 +44,9 @@ GLOBAL(s16 TMP_Y_CENTER_3a6a, 0)
 GLOBAL(s16 TMP_X_RIGHT_3a6a, 0)
 GLOBAL(s16 TMP_Y_BOTTOM_3a6a, 0)
 
+/* TIMWIN: 1108:0cc8 */
+GLOBAL(s16 SQUIRREL, 0)
+
 /* TIMWIN: 1108:3e47 */
 // AIR_PRESSURE ranges from 0 to 128 inclusive.
 GLOBAL(u16 AIR_PRESSURE, DEFAULT_AIR_PRESSURE)
@@ -88,3 +91,6 @@ GLOBAL(struct Part STATIC_PARTS_ROOT, { 0 })
 GLOBAL(struct Part MOVING_PARTS_ROOT, { 0 })
 /* TIMWIN: 1108:3e6b */
 GLOBAL(struct Part PARTS_BIN_ROOT, { 0 })
+
+/* TIMWIN: 1108:35f4. Probably specific to the Windows 3.1 port */
+GLOBAL(u32 VALUES_PER_PIXEL, 16)

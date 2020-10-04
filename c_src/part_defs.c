@@ -346,7 +346,7 @@ void reset_unknown39(struct Part *part) {
 }
 
 struct PartDef BOWLING_BALL = {
-    .flags1 = 0x8000,
+    .flags1 = 0x0800,
     .flags3 = 0x0008,
     .size_something2 = { 32, 32 },
     .size = { 32, 32 },
@@ -360,6 +360,9 @@ struct PartDef BOWLING_BALL = {
     .field_0x0e = 0x0000,
     .field_0x10 = 0x00f0,
     .field_0x12 = 0x00f0,
+
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
 
     .goobers = { 3, 0xff },
     .borders = 8,
@@ -389,6 +392,9 @@ struct PartDef BRICK_WALL = {
     .field_0x0e = 0x00f0,
     .field_0x10 = 0x0010,
     .field_0x12 = 0x0010,
+
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
 
     .goobers = { 4, 0xff },
     .borders = 4,
@@ -911,6 +917,10 @@ struct PartDef BALLOON = {
     .field_0x10 = 0x00f0,
     .field_0x12 = 0x00f0,
 
+    // TIMWIN: 1108:205F. 7 states.
+    .render_pos_offsets = (struct SByteVec[7]){ {0, 0}, {-15, -9}, {-20, -5}, {-28, 8}, {-30, 25}, {-26, 41}, {-26, 56} },
+    .field_0x1a = 0,
+
     .goobers = { 3, 0xff },
     .borders = 8,
     .part_order = 5,
@@ -927,6 +937,7 @@ struct PartDef *part_def(enum PartType type) {
     switch (type) {
         case P_BOWLING_BALL: return &BOWLING_BALL;
         case P_BRICK_WALL: return &BRICK_WALL;
+        case P_BALLOON: return &BALLOON;
         default: return 0;
     }
 }
@@ -1189,7 +1200,7 @@ TEST_SUITE(acceleration_and_terminal_velocity) {
 /* Partial from TIMWIN: 1090:0000 */
 // Was pre-calculated in TIM each time the air pressure or gravity changed. Now we just recalculate it each time.
 // TODO is to memoize this call if performance calls for it.
-s16 EXPORT part_acceleration(enum PartType type) {
+s16 part_acceleration(enum PartType type) {
     if (type == P_GUN_BULLET) {
         return 0;
     }
@@ -1203,7 +1214,7 @@ s16 EXPORT part_acceleration(enum PartType type) {
 /* Partial from TIMWIN: 1090:0000 */
 // Was pre-calculated in TIM each time the air pressure or gravity changed. Now we just recalculate it each time.
 // TODO is to memoize this call if performance calls for it.
-s16 EXPORT part_terminal_velocity(enum PartType type) {
+s16 part_terminal_velocity(enum PartType type) {
     if (type == P_GUN_BULLET || type == P_CANNON_BALL) {
         return 0x3000;
     }
@@ -1221,14 +1232,14 @@ struct Data31Field0x14** part_data31_field_0x14(enum PartType type) {
     return def->field_0x14;
 }
 
-struct SByteVec* part_data31_field_0x18(enum PartType type) {
+struct SByteVec* part_data31_render_pos_offsets(enum PartType type) {
     struct PartDef *def = part_def(type);
     if (!def) {
-        TRACE_ERROR("part_data31_field_0x18 - def not found");
+        TRACE_ERROR("part_data31_render_pos_offsets - def not found");
         return 0;
     }
 
-    return def->field_0x18;
+    return def->render_pos_offsets;
 }
 
 struct ShortVec* part_data31_field_0x1a(enum PartType type) {

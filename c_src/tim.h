@@ -74,7 +74,16 @@ struct Part* next_part_or_fallback(struct Part *part, int choice);
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#define SWAP(a, b) { typeof(a) tmp = a; a = b; b = tmp; }
+// This one doesn't work in MSVC
+// #define SWAP(a, b) { typeof(a) tmp = a; a = b; b = tmp; }
+
+#define SWAP(x, y) \
+    { \
+        unsigned char swap_temp[sizeof(x) == sizeof(y) ? (signed)sizeof(x) : -1]; \
+        memcpy(swap_temp,&y,sizeof(x)); \
+        memcpy(&y,&x,       sizeof(x)); \
+        memcpy(&x,swap_temp,sizeof(x)); \
+    }
 
 // Return true if b is between a and c (exclusive).
 #define BETWEEN_EXCL(a, b, c) (((a) < (b)) && ((b) < (c)))
@@ -121,7 +130,9 @@ struct PartDef {
     // field_0x14 is initialized later.
     struct Data31Field0x14 **field_0x14;
     s16 field_0x16;
-    struct SByteVec *field_0x18;
+    // Number of elements is the number of states (state1).
+    struct SByteVec *render_pos_offsets;
+    // Number of elements is the number of states.
     struct ShortVec *field_0x1a;
 
     // "Goobers" is a codename.
@@ -157,7 +168,7 @@ u16 part_order(enum PartType type);
 s16 part_acceleration(enum PartType type);
 s16 part_terminal_velocity(enum PartType type);
 struct Data31Field0x14** part_data31_field_0x14(enum PartType type);
-struct SByteVec* part_data31_field_0x18(enum PartType type);
+struct SByteVec* part_data31_render_pos_offsets(enum PartType type);
 struct ShortVec* part_data31_field_0x1a(enum PartType type);
 
 
@@ -189,8 +200,8 @@ struct Line {
 
 void play_sound(int id);
 
-static const u16 DEFAULT_GRAVITY = 272;
-static const u16 DEFAULT_AIR_PRESSURE = 67;
+#define DEFAULT_GRAVITY 272
+#define DEFAULT_AIR_PRESSURE 67
 #define MAX_GRAVITY 512
 #define MAX_AIR_PRESSURE 128
 
@@ -238,11 +249,16 @@ s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, en
 /* */
 
 
-/* sine.c */
-s16 sine(u16 angle);
-s16 cosine(u16 angle);
-void rotate_point(s16 *x, s16 *y, u16 angle);
+/* math.rs */
+s16 sine_c(u16 angle);
+s16 cosine_c(u16 angle);
+void rotate_point_c(s16 *x, s16 *y, u16 angle);
 /* */
+
+void unimplemented();
+void output_c(const char *);
+void output_part_c(struct Part *);
+void output_int_c(int64_t);
 
 #include "globals.h"
 

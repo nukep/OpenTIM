@@ -180,8 +180,7 @@ const COSINE_LOOKUP: [i16; 2049] = [
 /// dx and dy range from -0x400000 to +0x3FFFFF (-4,194,304 to 4,194,303)
 /// 
 /// Returns 4096 possible angles. (approx 11.3 divisions per degree)
-#[no_mangle]
-pub extern fn arctan(dx: i32, dy: i32) -> u16 {
+pub fn arctan(dx: i32, dy: i32) -> u16 {
     let negx = dx < 0;
     let negy = dy < 0;
     let dx = dx.abs();
@@ -226,7 +225,7 @@ pub extern fn sine(angle: u16) -> i16 {
 
 /// TIMWIN: 10c8:296e
 /// Returns value from -0x4000 to +0x4000 inclusive.
-pub extern fn cosine(angle: u16) -> i16 {
+pub fn cosine(angle: u16) -> i16 {
     let mut angle = angle / 16;
 
     if (angle & 0x0800) != 0 {
@@ -236,7 +235,6 @@ pub extern fn cosine(angle: u16) -> i16 {
     // "angle" is one of 2049 possible values (0x000 to 0x800 inclusive)
     COSINE_LOOKUP[angle as usize]
 }
-
 /// TIMWIN: 10a8:0000
 /// Modifies x and y by rotating it around 0,0. Rotates clockwise.
 pub fn rotate_point(x: i16, y: i16, angle: u16) -> (i16, i16) {
@@ -249,16 +247,10 @@ pub fn rotate_point(x: i16, y: i16, angle: u16) -> (i16, i16) {
      ((x*s + y*c) >> 0xe) as i16)
 }
 
-#[no_mangle]
-pub extern fn rotate_point_c(x: &mut i16, y: &mut i16, angle: u16) {
-    let (nx, ny) = rotate_point(*x, *y, angle);
-    *x = nx;
-    *y = ny;
-}
 
 /// TIMWIN: 10a8:02dc
 #[inline(always)]
-fn line_intersection_helper(a: i16, b: i16, c: i16) -> bool {
+pub fn line_intersection_helper(a: i16, b: i16, c: i16) -> bool {
     let (b, c) = if b > c { (c, b) } else { (b, c) };
 
     if a < b {

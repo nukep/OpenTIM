@@ -2,6 +2,7 @@ use nannou::prelude::*;
 use nannou::image;
 use std::collections::HashMap;
 use crate::resource_dos;
+use crate::tim_c;
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 
@@ -120,13 +121,13 @@ struct Model {
     render_items: Vec<RenderItem>,
     balloon_vel_y: i32,
     balloon_y: i32,
+    
+    clicked: bool,
 
     mouse_pos: Option<(i32, i32)>,
 }
 
 fn model(app: &App) -> Model {
-    println!("{:?}", MouseIcon::FlipVert as u32);
-
     // The DX12 backend seems to have a bug where all textures are drawn the same.
     // So this is Vulkan-only for now.
     let window_id = app.new_window()
@@ -137,7 +138,7 @@ fn model(app: &App) -> Model {
         .event(event)
         .build().unwrap();
     let window = app.window(window_id).unwrap();
-    window.set_cursor_visible(false);
+    // window.set_cursor_visible(false);
 
     let mut textures = HashMap::new();
 
@@ -153,7 +154,7 @@ fn model(app: &App) -> Model {
         textures.insert(ImageId::new(filename, slice_idx), texture);
     }).unwrap();
 
-    Model { textures, ticks: 0, render_items: vec![], balloon_vel_y: 0, balloon_y: 480<<9, mouse_pos: None }
+    Model { textures, ticks: 0, render_items: vec![], balloon_vel_y: 0, balloon_y: 480<<9, mouse_pos: None, clicked: false }
 }
 
 // Handle events related to the window and update the model if necessary
@@ -166,7 +167,10 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
         },
         MouseExited => {
             model.mouse_pos = None;
-        }
+        },
+        KeyPressed(Key::Space) => {
+            model.clicked = true;
+        },
         _ => ()
     }
 }
@@ -195,11 +199,18 @@ fn update(app: &App, model: &mut Model, _update: Update) {
         render_items.push(RenderItem::Image { id: ImageId::Mouse(MouseIcon::Default), x: x, y: y });
     }
 
-    model.render_items = render_items;
+    model.render_items = vec![]; //render_items;
 
     model.ticks = model.ticks.wrapping_add(1);
     model.balloon_y += model.balloon_vel_y;
     model.balloon_vel_y = std::cmp::max(model.balloon_vel_y.wrapping_sub(25), -2000);
+
+    if model.clicked && model.ticks % 2 == 0 {
+        unsafe {
+            tim_c::advance_parts();
+            tim_c::all_parts_set_prev_vars();
+        }
+    }
 }
 
 #[inline(always)]
@@ -264,6 +275,47 @@ fn view(app: &App, model: &Model, frame: Frame) {
                 let (x, y) = transform(*x as f32, *y as f32);
                 draw.text(text).x_y(x, y).left_justify().align_text_top().color(BLACK);
             },
+        }
+    }
+
+    {
+        let iter = unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) };
+        for part in iter {
+            let part_x = part.pos_x_hi_precision as f32 / 512.0;
+            let part_y = part.pos_y_hi_precision as f32 / 512.0;
+
+            // Draw shape border
+
+            let border_iter = part.border_points().iter().map(|p| {
+                (part_x + p.x as f32, part_y + p.y as f32)
+            }).map(|(x, y)|
+                transform(x, y)
+            ).map(|(x, y)|
+                pt2(x, y)
+            );
+            draw.polygon().rgba8(0,0,0,192).points(border_iter);
+
+            // Draw normals
+
+            // Big crazy iterator that yields a pair of the border point and the next one. (point_n, point_n+1).
+            let niter = part.border_points().iter().zip(part.border_points().iter().cycle().skip(1)).take(part.border_points().iter().count());
+
+            for (a, b) in niter {
+                let normal = a.normal_angle as f32 / 65536.0;
+                let ox = part_x + (a.x as f32 + b.x as f32) / 2.0;
+                let oy = part_y + (a.y as f32 + b.y as f32) / 2.0;
+
+                let s = f32::sin(normal*3.141592*2.0) * 3.0;
+                let c = f32::cos(normal*3.141592*2.0) * 3.0;
+
+                let (ox, oy) = transform(ox, oy);
+
+                draw.line().color(BLACK).points(pt2(ox, oy), pt2(ox-s, oy+c));
+
+                // draw.ellipse().color(BLACK).width(2.0).height(2.0).x_y(ox, oy);
+            }
+
+            // draw.rect
         }
     }
 

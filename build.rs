@@ -1,6 +1,6 @@
 
 fn main() {
-    let c_sources = &["foo.c"];
+    let c_sources = &["foo.c", "globals.c", "main.c", "part_defs.c", "draw_rope.c"];
 
     let mut builder = cc::Build::new();
 
@@ -8,5 +8,5 @@ fn main() {
         builder.file(format!("c_src/{}", filename));
     }
 
-    builder.compile("foo");
+    builder.compile("tim_c");
 }

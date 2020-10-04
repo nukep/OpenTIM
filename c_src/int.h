@@ -1,6 +1,8 @@
 #ifndef INT_H
 #define INT_H
 
+#include <stdint.h>
+
 typedef unsigned char byte;
 typedef signed char sbyte;
 typedef unsigned char u8;

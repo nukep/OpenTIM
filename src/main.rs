@@ -8,8 +8,62 @@ mod decoders;
 mod resource_dos;
 mod math;
 mod nannou;
+mod tim_c;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let bowling_ball_raw = unsafe { tim_c::part_new(0) };
+    let balloon_raw = unsafe { tim_c::part_new(4) };
+    let brick_wall_raw = unsafe { tim_c::part_new(1) };
+    let brick_wall2_raw = unsafe { tim_c::part_new(1) };
+
+    {
+        let bowling_ball: &mut tim_c::Part = unsafe { bowling_ball_raw.as_mut().unwrap() };
+        bowling_ball.flags1 = 0x1000;
+        bowling_ball.flags2 = 0x0000;
+        bowling_ball.flags3 = 0x0008;
+        bowling_ball.original_pos_x = 176;
+        bowling_ball.original_pos_y = 100;
+
+        let balloon: &mut tim_c::Part = unsafe { balloon_raw.as_mut().unwrap() };
+        balloon.original_pos_x = 230;
+        balloon.original_pos_y = 340;
+
+        let brick_wall: &mut tim_c::Part = unsafe { brick_wall_raw.as_mut().unwrap() };
+        brick_wall.original_pos_x = 176;
+        brick_wall.original_pos_y = 400;
+        brick_wall.size_something2.x = 16*8;
+        brick_wall.flags1 = 0x6040;
+        brick_wall.flags2 = 0x0180;     // was originally set
+        brick_wall.flags3 = 0x0000;     
+
+        let brick_wall2: &mut tim_c::Part = unsafe { brick_wall2_raw.as_mut().unwrap() };
+        brick_wall2.original_pos_x = 176;
+        brick_wall2.original_pos_y = 32;
+        brick_wall2.size_something2.x = 16*8;
+        brick_wall2.flags1 = 0x6040;
+        brick_wall2.flags2 = 0x0180;     // was originally set
+        brick_wall2.flags3 = 0x0000;     
+    }
+
+    unsafe {
+        tim_c::insert_part_into_moving_parts(bowling_ball_raw);
+        tim_c::insert_part_into_moving_parts(balloon_raw);
+        tim_c::insert_part_into_static_parts(brick_wall_raw);
+        tim_c::insert_part_into_static_parts(brick_wall2_raw);
+        tim_c::restore_parts_state_from_design();
+        // for _ in 0..60 {
+        //     tim_c::advance_parts();
+        //     tim_c::all_parts_set_prev_vars();
+        // }
+        
+        // let bowling_ball: &mut tim_c::Part = unsafe { bowling_ball_raw.as_mut().unwrap() };
+        // println!("{:?}", bowling_ball.border_points());
+    }
+    // println!(b)
+    // tim_c::print_parts();
+
+    // println!("{}", unsafe { tim_c::debug_part_size() });
+    // println!("{}", std::mem::size_of::<tim_c::BeltData>());
     nannou::start();
     Ok(())
 }
@@ -37,7 +91,7 @@ pub fn load_images(on_image: &mut dyn FnMut(&str, usize, u32, u32, Vec<u8>)) -> 
     filenames.sort();
 
     for f in filenames.iter() {
-        println!("{}", f);
+        // println!("{}", f);
     }
 
     for filename in filenames.iter() {
