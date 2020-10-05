@@ -252,6 +252,7 @@ pub fn rotate_point(x: i16, y: i16, angle: u16) -> (i16, i16) {
 #[inline(always)]
 pub fn line_intersection_helper(a: i16, b: i16, c: i16) -> bool {
     let (b, c) = if b > c { (c, b) } else { (b, c) };
+    // (smallest, largest)
 
     if a < b {
         false
@@ -292,6 +293,108 @@ pub fn line_intersection(a: ((i16, i16), (i16, i16)),
                      line_intersection_helper(out.1, b.0.1, b.1.1);
 
     (intersects, out)
+}
+
+#[cfg(test)]
+mod line_intersection_tests {
+    use super::line_intersection;
+
+    #[test]
+    fn plus1() {
+        let r = line_intersection(((-64, 0), (64, 0)),
+                                  ((0, -64), (0, 64)));
+        assert_eq!(r, (true, (0, 0)));
+    }
+    #[test]
+    fn plus2() {
+        let r = line_intersection(((0, 64), (128, 64)),
+                                  ((64, 0), (64, 128)));
+        assert_eq!(r, (true, (64, 64)));
+    }
+
+    #[test]
+    fn overlap_straight_horz() {
+        let r = line_intersection(((64, 64), (128, 64)),
+                                  ((64, 64), (128, 64)));
+        assert_eq!(r, (false, (0, 0)));
+    }
+
+    #[test]
+    fn overlap_straight_horz_subset() {
+        let r = line_intersection(((64, 64), (128, 64)),
+                                  ((65, 64), (127, 64)));
+        assert_eq!(r, (false, (0, 0)));
+    }
+
+    #[test]
+    fn overlap_straight_vert() {
+        let r = line_intersection(((64, 64), (64, 128)),
+                                  ((64, 64), (64, 128)));
+        assert_eq!(r, (false, (0, 0)));
+    }
+
+    #[test]
+    fn overlap_straight_vert_subset() {
+        let r = line_intersection(((64, 64), (64, 128)),
+                                  ((64, 65), (64, 127)));
+        assert_eq!(r, (false, (0, 0)));
+    }
+
+    #[test]
+    fn overlap_diag() {
+        let r = line_intersection(((64, 64), (128, 128)),
+                                  ((64, 64), (128, 128)));
+        assert_eq!(r, (false, (0, 0)));
+    }
+
+    #[test]
+    fn overlap_diag_subset() {
+        let r = line_intersection(((64, 64), (128, 128)),
+                                  ((65, 65), (127, 127)));
+        assert_eq!(r, (false, (0, 0)));
+    }
+
+    #[test]
+    fn two_lines_no_intersect() {
+        let r = line_intersection(((10, 10), (100, 100)),
+                                  ((250, 20), (150, 60)));
+        assert_eq!(r, (false, (85, 85)));
+    }
+
+    #[test]
+    fn two_lines_intersect() {
+        let r = line_intersection(((20, -45), (52, 140)),
+                                  ((250, 20), (-45, 54)));
+        assert_eq!(r, (true, (35, 44)));
+    }
+
+    #[test]
+    fn two_lines_intersect_one_horz_1() {
+        let r = line_intersection(((20, -45), (52, 140)),
+                                  ((210, 54), (-45, 54)));
+        assert_eq!(r, (true, (37, 54)));
+    }
+
+    #[test]
+    fn two_lines_intersect_one_horz_2() {
+        let r = line_intersection(((210, 54), (-45, 54)),
+                                  ((20, -45), (52, 140)));
+        assert_eq!(r, (true, (37, 54)));
+    }
+
+    #[test]
+    fn two_points() {
+        let r = line_intersection(((1, 1), (1, 1)),
+                                  ((5, 1), (5, 1)));
+        assert_eq!(r, (false, (1, 1)));
+    }
+
+    #[test]
+    fn two_points_same() {
+        let r = line_intersection(((5, 1), (5, 1)),
+                                  ((5, 1), (5, 1)));
+        assert_eq!(r, (true, (5, 1)));
+    }
 }
 
 #[cfg(test)]
