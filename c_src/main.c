@@ -7,6 +7,7 @@ u16 arctan_c(s32 dx, s32 dy);
 u16 rope_calculate_flags(struct RopeData *rope, int param_2, int param_3);
 bool calculate_line_intersection_helper(s16 a, s16 b, s16 c);
 bool calculate_line_intersection(const struct Line *a, const struct Line *b, struct ShortVec *out);
+bool part_image_size(enum PartType type, u16 index, struct ShortVec *size_out);
 
 static inline s16 utos(u16 v) {
     // Unsigned->signed conversion for integers with the same number of bits is undefined in C.
@@ -261,10 +262,9 @@ void part_set_size(struct Part *part) {
         return;
     }
 
-    struct Data31Field0x14 **vv = part_data31_field_0x14(part->type);
-    if (vv) {
-        struct Data31Field0x14 *ptr = vv[part->state1];
-        part->size = ptr->size;
+    struct ShortVec size;
+    if (part_image_size(part->type, part->state1, &size)) {
+        part->size = size;
         return;
     }
 
@@ -1061,24 +1061,20 @@ int stub_1050_02db(struct Part *part) {
 
                             if (TMP_X_3a6a < TMP_X_RIGHT_3a6c && TMP_X_LEFTMOST_3a6c < TMP_X_RIGHT_3a6a
                                 && TMP_Y_3a6a < TMP_Y_BOTTOM_3a6c && TMP_Y_TOPMOST_3a6c < TMP_Y_BOTTOM_3a6a) {
-                                output_c("A!");
                                 int result = stub_1050_0550(0);
                                 if (result != 0) {
                                     has_found_angle = 1;
                                     TMP_MOVEMENT_ANGLE_3a6c = part_get_movement_delta_angle(PART_3a6c);
-                                    output_int_c(TMP_MOVEMENT_ANGLE_3a6c);
                                 }
                             }
 
                             // The <= is intentional.
                             if (TMP_X_3a6a <= TMP_X_RIGHT_3a6c && TMP_X_LEFTMOST_3a6c <= TMP_X_RIGHT_3a6a
                                 && TMP_Y_3a6a <= TMP_Y_BOTTOM_3a6c && TMP_Y_TOPMOST_3a6c <= TMP_Y_BOTTOM_3a6a) {
-                                output_c("B!");
                                 int result = stub_1050_08fe(0);
                                 if (result != 0) {
                                     has_found_angle = 1;
                                     TMP_MOVEMENT_ANGLE_3a6c = part_get_movement_delta_angle(PART_3a6c);
-                                    output_int_c(TMP_MOVEMENT_ANGLE_3a6c);
                                 }
                             }
                         }

@@ -15,6 +15,7 @@ extern {
     pub fn insert_part_into_parts_bin(part: *mut Part);
 
     pub static mut GRAVITY: u16;
+    pub static mut AIR_PRESSURE: u16;
 
     pub static mut STATIC_PARTS_ROOT: Part;
     pub static mut MOVING_PARTS_ROOT: Part;
@@ -224,4 +225,57 @@ pub extern fn calculate_line_intersection_helper(a: i16, b: i16, c: i16) -> c_in
     let intersects = math::line_intersection_helper(a, b, c);
 
     if intersects { 1 } else { 0 }
+}
+
+static mut PART_IMAGE_SIZES: Vec<(i16, i16)> = vec![];
+
+// Returns true if a valid image size was found.
+// Returns false otherwise. size_out is unchanged in this case.
+#[no_mangle]
+pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) -> c_int {
+    // relies on global variables for now, because the original game did.
+
+    // In TIMWIN, this value comes from (pseudocode):
+    // width  = data31[part_type].field_0x14[state].field_0x04 (16-bit signed)
+    // height = data31[part_type].field_0x14[state].field_0x06 (16-bit signed)
+
+
+    // some hard-coded part sizes until we implement loading them from the resource files
+    let t = match part_type {
+        0 => Some((32, 32)),
+        1 => Some((16, 16)),
+        2 => match index {
+            0 => Some((16, 32)),
+            1 => Some((32, 32)),
+            2 => Some((48, 32)),
+            3 => Some((64, 32)),
+            _ => None
+        },
+        3 => match index {
+            0 => Some((80, 36)),
+            1 => Some((80, 23)),
+            2 => Some((80, 36)),
+            _ => None
+        },
+        4 => match index {
+            0 => Some((32, 48)),
+            1 => Some((72, 71)),
+            2 => Some((80, 67)),
+            3 => Some((96, 61)),
+            4 => Some((88, 54)),
+            5 => Some((88, 46)),
+            6 => Some((88, 50)),
+            _ => None
+        },
+        _ => None
+    };
+
+    if let Some((width, height)) = t {
+        let out = unsafe { out.as_mut().unwrap() };
+        out.x = width;
+        out.y = height;
+        return 1;
+    }
+
+    return 0;
 }

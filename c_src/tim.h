@@ -94,10 +94,10 @@ struct Part* next_part_or_fallback(struct Part *part, int choice);
 #define ANY_FLAGS(v, f) (((v) & (f)) != 0)
 #define ALL_FLAGS(v, f) (((v) & (f)) == f)
 
-struct Data31Field0x14 {
-    s16 field_0x00;        // TIMWIN offset: 00
-    struct ShortVec size;   // TIMWIN offset: 04
-};
+// struct Data31Field0x14 {
+//     s16 field_0x00;        // TIMWIN offset: 00
+//     struct ShortVec size;   // TIMWIN offset: 04
+// };
 
 struct PartDef {
     // Fields henceforth correlate to Segment 30 in TIMWIN
@@ -129,7 +129,10 @@ struct PartDef {
 
     // field_0x14 is initialized later.
     // Number of elements is the number of states (state1).
-    struct Data31Field0x14 **field_0x14;
+    // OpenTIM - removed
+    // we get the image size (the only important part I'm aware of) via part_image_size
+    // struct Data31Field0x14 **field_0x14;
+
     s16 field_0x16;
     // Number of elements is the number of states (state1).
     struct SByteVec *render_pos_offsets;
@@ -168,7 +171,6 @@ s16 part_friction(enum PartType type);
 u16 part_order(enum PartType type);
 s16 part_acceleration(enum PartType type);
 s16 part_terminal_velocity(enum PartType type);
-struct Data31Field0x14** part_data31_field_0x14(enum PartType type);
 struct SByteVec* part_data31_render_pos_offsets(enum PartType type);
 struct ShortVec* part_data31_field_0x1a(enum PartType type);
 
