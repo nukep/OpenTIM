@@ -8,6 +8,28 @@ u16 rope_calculate_flags(struct RopeData *rope, int param_2, int param_3);
 bool calculate_line_intersection_helper(s16 a, s16 b, s16 c);
 bool calculate_line_intersection(const struct Line *a, const struct Line *b, struct ShortVec *out);
 
+static inline s16 utos(u16 v) {
+    // Unsigned->signed conversion for integers with the same number of bits is undefined in C.
+    // But we often like to do it for stuff like calculating angles.
+    // Manually wrap around as two's complement
+    if (v < 0x8000) {
+        return v;
+    } else {
+        s32 x = 0x10000 - (s32)v;
+        return (s16)(-x);
+    }
+}
+
+static inline u16 uneg(u16 v) {
+    // Do the same as casting v to two's complement, then negating the value.
+    return (v ^ 0xFFFF) + 1;
+}
+
+static inline s32 mul32(s32 a, s32 b) {
+    // Convenience, because explicit casting is ugly and hard to read.
+    return a * b;
+}
+
 /* TIMWIN: 10a8:1e46 */
 static inline void insert_part_into_root(struct Part *part, struct Part *root) {
     struct Part *curpart = root;
@@ -101,7 +123,7 @@ static inline void calculate_border_normal_segment(struct BorderPoint *a, struct
 /* TIMWIN: 10a8:26b5 */
 void part_calculate_border_normals(struct Part *part) {
     // Calculate between first and last points...
-    for (int i = 0; i < part->num_borders-1; i++) {
+    for (u16 i = 0; i < part->num_borders-1; i++) {
         struct BorderPoint *a = part->borders_data + i;
         struct BorderPoint *b = part->borders_data + i + 1;
         calculate_border_normal_segment(a, b);
@@ -330,7 +352,7 @@ void part_clamp_to_terminal_velocity(struct Part *part) {
 void part_update_vel_and_force(struct Part *part) {
     part->vel_hi_precision.y += part_acceleration(part->type);
     part_clamp_to_terminal_velocity(part);
-    part->force = (s32)(abs(part->vel_hi_precision.x) + abs(part->vel_hi_precision.y)) * (s32)part->mass;
+    part->force = mul32(abs(part->vel_hi_precision.x) + abs(part->vel_hi_precision.y), part->mass);
 }
 
 /* TIMWIN: 1050:0221
@@ -347,7 +369,7 @@ u16 quadrant_from_angle(u16 angle) {
 
 /* TIMWIN: 1050:01e7 */
 u16 part_get_movement_delta_angle(struct Part *part) {
-    return arctan_c(-(part->pos.x - part->pos_prev1.x), part->pos.y - part->pos_prev1.y);
+    return arctan_c(part->pos_prev1.x - part->pos.x, part->pos.y - part->pos_prev1.y);
 }
 
 /* TIMWIN: 10a8:176f */
@@ -542,7 +564,7 @@ void restore_parts_state_from_design() {
 
 /* TIMWIN: 1050:001e
    Note: I double-checked it for accuracy */
-void stub_1050_001e() {
+void tmp_3a6c_update_vars() {
     TMP_X2_3a6c = PART_3a6c->pos.x;
     TMP_Y2_3a6c = PART_3a6c->pos.y;
 
@@ -561,7 +583,7 @@ void stub_1050_001e() {
 
 /* TIMWIN: 1050:00a8
    Note: I double-checked it for accuracy */
-void stub_1050_00a8() {
+void tmp_3a6a_update_vars() {
     TMP_X_3a6a = PART_3a6a->pos.x;
     TMP_Y_3a6a = PART_3a6a->pos.y;
 
@@ -576,19 +598,18 @@ void stub_1050_00a8() {
    Note: double-checked for accuracy */
 int stub_1050_00f0(u16 angle) {
     if (!PART_3a68) return 0;
-    if (quadrant_from_angle(angle) != TMP_3a8e) return 0;
+    if (quadrant_from_angle(angle) != TMP_QUADRANT) return 0;
 
     bool flag = 0;
 
-    // Angles are signed!
-    s16 new_angle = (s16)angle + 0x2000;
-    s16 tmp_3a90_new_angle = (s16)TMP_3a90 + 0x2000;
+    u16 new_angle = angle + 0x2000;
+    u16 tmp_3a90_new_angle = TMP_BOUNCE_ANGLE_3a6c + 0x2000;
 
-    if (new_angle < 0 || new_angle > 0x4000 || tmp_3a90_new_angle < 0 || tmp_3a90_new_angle > 0x4000) {
+    if (utos(new_angle) < 0 || utos(new_angle) > 0x4000 || utos(tmp_3a90_new_angle) < 0 || utos(tmp_3a90_new_angle) > 0x4000) {
         new_angle = angle + 0xa000;
-        tmp_3a90_new_angle = TMP_3a90 + 0xa000;
+        tmp_3a90_new_angle = TMP_BOUNCE_ANGLE_3a6c + 0xa000;
 
-        if (!((new_angle < 0 || new_angle > 0x4000 || tmp_3a90_new_angle < 0 || tmp_3a90_new_angle > 0x4000))) {
+        if (!(utos(new_angle) < 0 || utos(new_angle) > 0x4000 || utos(tmp_3a90_new_angle) < 0 || utos(tmp_3a90_new_angle) > 0x4000)) {
             flag = 1;
         }
     } else {
@@ -596,16 +617,17 @@ int stub_1050_00f0(u16 angle) {
     }
 
     if (flag) {
-        if (angle == TMP_3a90) return 1;
+        if (angle == TMP_BOUNCE_ANGLE_3a6c) return 1;
         if (new_angle == 0x2000 || tmp_3a90_new_angle == 0x2000) return 1;
-        if (new_angle < 0x2000 && tmp_3a90_new_angle < 0x2000) return 1;
-        if (new_angle > 0x2000 && tmp_3a90_new_angle > 0x2000) return 1;
+        if (utos(new_angle) < 0x2000 && utos(tmp_3a90_new_angle) < 0x2000) return 1;
+        if (utos(new_angle) > 0x2000 && utos(tmp_3a90_new_angle) > 0x2000) return 1;
     }
     return 0;
 }
 
 /* TIMWIN: 1050:025e
-   Note: We changed the signature slightly, to pass bounce_field_0x86 directly
+   Note: We changed the signature slightly, to pass bounce_field_0x86 directly.
+   Note: I double-checked this for accuracy.
 */
 void stub_1050_025e(struct Line *line, s16 x, byte *bounce_field_0x86) {
     if (calculate_line_intersection_helper(x, line->p0.x, line->p1.x) != 0) {
@@ -628,7 +650,8 @@ void stub_1050_025e(struct Line *line, s16 x, byte *bounce_field_0x86) {
 }
 
 /* TIMWIN: 1050:0550
-   Very similar to stub_1050_08fe */
+   Very similar to stub_1050_08fe
+   Note: I double-checked this for accuracy. */
 int stub_1050_0550(bool some_bool) {
     struct BorderPoint* borders_data = PART_3a6a->borders_data;
     s16 b0x = TMP_X_3a6a + borders_data[0].x;
@@ -637,32 +660,31 @@ int stub_1050_0550(bool some_bool) {
     s16 b1x = TMP_X_3a6a + borders_data[1].x;
     s16 b1y = TMP_Y_3a6a + borders_data[1].y;
 
-    s16 b0angle = borders_data[0].normal_angle;
+    u16 b0angle = borders_data[0].normal_angle;
 
     s16 somex = b0x;
     s16 somey = b0y;
 
-    int border_idx = 1;
+    u16 border_idx = 1;
     bool found = 0;
 
     while (borders_data) {
         u16 quad = quadrant_from_angle(b0angle);
 
-        if (((s16)(TMP_3a92 - b0angle) != -0x4000) && ((s16)(TMP_3a92 - b0angle + 0x4000) >= 0)) {
+        if (TMP_MOVEMENT_ANGLE_3a6c - b0angle != 0xC000 && utos(TMP_MOVEMENT_ANGLE_3a6c - b0angle + 0x4000) >= 0) {
             struct BorderPoint *borders_data_3a6c = PART_3a6c->borders_data;
-            s16 angle_3a6c = borders_data_3a6c->normal_angle;
+            u16 angle_3a6c = borders_data_3a6c->normal_angle;
             borders_data_3a6c += 1;
             int border_3a6c_idx = 1;
 
             while (borders_data_3a6c) {
-                s16 ivar5 = angle_3a6c - b0angle - 0x8000;
+                u16 ivar5 = angle_3a6c - b0angle + 0x8000;
 
-                if (ivar5 >= 0 || ivar5 == -0x8000) {
-                    ivar5 = borders_data_3a6c->normal_angle - b0angle;
-                    if (ivar5 == -0x8000 || ivar5 - 0x8000 < 0) {
+                if (utos(ivar5) >= 0 || ivar5 == 0x8000) {
+                    u16 ivar5 = borders_data_3a6c->normal_angle - b0angle;
+                    if (ivar5 == 0x8000 || utos(ivar5 + 0x8000) < 0) {
                         if (TMP_X_DELTA_3a6c != 0 || TMP_Y_DELTA_3a6c != 0) {
                             struct Line line1, line2;
-                            struct ShortVec point;
 
                             line1.p0.x = PART_3a6c->pos_prev1.x + borders_data_3a6c->x - somex;
                             line1.p0.y = PART_3a6c->pos_prev1.y + borders_data_3a6c->y - somey;
@@ -677,7 +699,11 @@ int stub_1050_0550(bool some_bool) {
                             s16 saved_line1_p1_y = line1.p1.y;
 
                             four_points_adjust_p1_by_one(&line2);
-                            if (calculate_line_intersection(&line1, &line2, &point) && !VEC_EQ(point, line2.p1)) {
+
+                            struct ShortVec point;
+                            int intersects = calculate_line_intersection(&line1, &line2, &point);
+
+                            if (intersects && !VEC_EQ(point, line2.p1)) {
                                 if (some_bool) {
                                     return 1;
                                 }
@@ -717,7 +743,7 @@ int stub_1050_0550(bool some_bool) {
                                 // Changes:
                                 // TMP_X2_3a6c, TMP_Y2_3a6c, TMP_X_CENTER_3a6c, TMP_Y_CENTER_3a6c,
                                 // TMP_X_DELTA_3a6c, TMP_Y_DELTA_3a6c, TMP_X_LEFTMOST_3a6c, TMP_Y_TOPMOST_3a6c, TMP_X_RIGHT_3a6c, TMP_Y_BOTTOM_3a6c
-                                stub_1050_001e();
+                                tmp_3a6c_update_vars();
 
                                 PART_3a6c->flags1 &= ~(0x0004 | 0x0002);
 
@@ -777,7 +803,7 @@ int stub_1050_0550(bool some_bool) {
 }
 
 /* TIMWIN: 10a8:03ac */
-int should_parts_skip_collision(enum PartType a, enum PartType b) {
+bool should_parts_skip_collision(enum PartType a, enum PartType b) {
     // Checks if the two part types are a set of any two specific parts, regardless of order.
 
     #define CHK(x, y) ((a == x && b == y) || (b == x && a == y))
@@ -806,7 +832,7 @@ bool bucket_contains(struct Part *bucket, struct Part *contains) {
 
 /* TIMWIN: 1050:08fe
    Very similar to stub_1050_0550.
-   Takes TMP_3a92 as input. */
+   Note: I double-checked this for accuracy. */
 int stub_1050_08fe(bool some_bool) {
     struct BorderPoint *borders_data = PART_3a6c->borders_data;
     s16 b0x = TMP_X2_3a6c + borders_data[0].x;
@@ -820,26 +846,25 @@ int stub_1050_08fe(bool some_bool) {
     s16 somex = b0x;
     s16 somey = b0y;
 
-    int border_idx = 1;
+    u16 border_idx = 1;
     bool found = 0;
 
     while (borders_data) {
         u16 quad = quadrant_from_angle(b0angle + 0x8000);
 
-        if (((s16)(TMP_3a92 - b0angle) != 0x4000) && ((s16)(TMP_3a92 - b0angle - 0x4000) >= 0)) {
+        if ((TMP_MOVEMENT_ANGLE_3a6c - b0angle != 0x4000) && utos(TMP_MOVEMENT_ANGLE_3a6c - b0angle + 0xC000) >= 0) {
             struct BorderPoint *borders_data_3a6a = PART_3a6a->borders_data;
-            s16 angle_3a6a = borders_data_3a6a->normal_angle;
+            u16 angle_3a6a = borders_data_3a6a->normal_angle;
             borders_data_3a6a += 1;
-            int border_3a6a_idx = 1;
+            u16 border_3a6a_idx = 1;
 
             while (borders_data_3a6a) {
-                s16 ivar5 = angle_3a6a - b0angle - 0x8000;
-                if (ivar5 >= 0 || ivar5 == -0x8000) {
-                    ivar5 = borders_data_3a6a->normal_angle - b0angle;
-                    if (ivar5 == -0x8000 || ivar5 - 0x8000 < 0) {
+                u16 ivar5 = angle_3a6a - b0angle + 0x8000;
+                if (utos(ivar5) >= 0 || ivar5 == 0x8000) {
+                    u16 ivar5 = borders_data_3a6a->normal_angle - b0angle;
+                    if (ivar5 == 0x8000 || utos(ivar5 + 0x8000) < 0) {
                         if (TMP_X_DELTA_3a6c != 0 || TMP_Y_DELTA_3a6c != 0) {
                             struct Line line1, line2;
-                            struct ShortVec point;
 
                             line1.p1.x = PART_3a6a->pos.x + borders_data_3a6a->x - somex;
                             line1.p1.y = PART_3a6a->pos.y + borders_data_3a6a->y - somey;
@@ -854,7 +879,11 @@ int stub_1050_08fe(bool some_bool) {
                             s16 saved_line1_p1_y = line1.p1.y;
 
                             four_points_adjust_p1_by_one(&line2);
-                            if (calculate_line_intersection(&line1, &line2, &point) && !VEC_EQ(point, line2.p1)) {
+
+                            struct ShortVec point;
+                            int intersects = calculate_line_intersection(&line1, &line2, &point);
+
+                            if (intersects && !VEC_EQ(point, line2.p1)) {
                                 if (some_bool) {
                                     return 1;
                                 }
@@ -896,7 +925,7 @@ int stub_1050_08fe(bool some_bool) {
                                 // Changes:
                                 // TMP_X2_3a6c, TMP_Y2_3a6c, TMP_X_CENTER_3a6c, TMP_Y_CENTER_3a6c,
                                 // TMP_X_DELTA_3a6c, TMP_Y_DELTA_3a6c, TMP_X_LEFTMOST_3a6c, TMP_Y_TOPMOST_3a6c, TMP_X_RIGHT_3a6c, TMP_Y_BOTTOM_3a6c
-                                stub_1050_001e();
+                                tmp_3a6c_update_vars();
 
                                 PART_3a6c->flags1 &= ~(0x0004 | 0x0002);
 
@@ -968,26 +997,27 @@ int stub_1050_08fe(bool some_bool) {
     return found;
 }
 
-/* TIMWIN: 1050:02db */
+/* TIMWIN: 1050:02db
+   Note: I double-checked it for accuracy */
 int stub_1050_02db(struct Part *part) {
     PART_3a6c = part;
     if (!part->borders_data) return 0;
 
     PART_3a68 = part->bounce_part;
     if (part->bounce_part) {
-        TMP_3a90 = part->bounce_angle;
-        TMP_3a8e = quadrant_from_angle(part->bounce_angle);
+        TMP_BOUNCE_ANGLE_3a6c = part->bounce_angle;
+        TMP_QUADRANT = quadrant_from_angle(part->bounce_angle);
     }
 
     part->bounce_field_0x86[0] = 0;
     part->bounce_field_0x86[1] = 0;
 
-    TMP_3a92 = part_get_movement_delta_angle(part);
+    TMP_MOVEMENT_ANGLE_3a6c = part_get_movement_delta_angle(part);
 
     // Changes:
     // TMP_X2_3a6c, TMP_Y2_3a6c, TMP_X_CENTER_3a6c, TMP_Y_CENTER_3a6c,
     // TMP_X_DELTA_3a6c, TMP_Y_DELTA_3a6c, TMP_X_LEFTMOST_3a6c, TMP_Y_TOPMOST_3a6c, TMP_X_RIGHT_3a6c, TMP_Y_BOTTOM_3a6c
-    stub_1050_001e();
+    tmp_3a6c_update_vars();
     
     bool has_found_angle = 0;
 
@@ -995,55 +1025,60 @@ int stub_1050_02db(struct Part *part) {
         PART_3a6a = PART_3a68;
         if (PART_3a68->borders_data && NO_FLAGS(PART_3a68->flags2, 0x2000)) {
             // Changes: TMP_X_3a6a, TMP_Y_3a6a, TMP_X_CENTER_3a6a, TMP_Y_CENTER_3a6a, TMP_X_RIGHT_3a6a, TMP_Y_BOTTOM_3a6a
-            stub_1050_00a8();
+            tmp_3a6a_update_vars();
 
             if (TMP_X_3a6a < TMP_X_RIGHT_3a6c && TMP_X_LEFTMOST_3a6c < TMP_X_RIGHT_3a6a
                 && TMP_Y_3a6a < TMP_Y_BOTTOM_3a6c && TMP_Y_TOPMOST_3a6c < TMP_Y_BOTTOM_3a6a) {
                 int result = stub_1050_0550(0);
                 if (result != 0) {
                     has_found_angle = 1;
-                    TMP_3a92 = part_get_movement_delta_angle(PART_3a6c);
+                    TMP_MOVEMENT_ANGLE_3a6c = part_get_movement_delta_angle(PART_3a6c);
                 }
             }
             // unsure about side-effects from stub_1050_0550
             // which is why i haven't merged the below if statement with the above one
             if (TMP_X_3a6a < TMP_X_RIGHT_3a6c && TMP_X_LEFTMOST_3a6c < TMP_X_RIGHT_3a6a
                 && TMP_Y_3a6a < TMP_Y_BOTTOM_3a6c && TMP_Y_TOPMOST_3a6c < TMP_Y_BOTTOM_3a6a) {
-                if (stub_1050_08fe(0) != 0) {
+                int result = stub_1050_08fe(0);
+                if (result != 0) {
                     has_found_angle = 1;
-                    TMP_3a92 = part_get_movement_delta_angle(PART_3a6c);
+                    TMP_MOVEMENT_ANGLE_3a6c = part_get_movement_delta_angle(PART_3a6c);
                 }
             }
         }
     }
 
-    EACH_STATIC_THEN_MOVING_PART(curpart) {
-        PART_3a6a = curpart;
-        if (!bucket_contains(PART_3a6c, curpart)) {
-            if (PART_3a6c != curpart && PART_3a68 != curpart) {
-                if (curpart->borders_data) {
-                    if (NO_FLAGS(curpart->flags2, 0x2000)) {
-                        if (should_parts_skip_collision(PART_3a6c->type, curpart->type) == 0) {
+    // Wasn't sure if PART_3a6a got mutated, so I decided not to use EACH_STATIC_THEN_MOVING_PART macro
+    PART_3a6a = get_first_part(CHOOSE_STATIC_OR_ELSE_MOVING_PART);
+    while (PART_3a6a) {
+        if (!bucket_contains(PART_3a6c, PART_3a6a)) {
+            if (PART_3a6c != PART_3a6a && PART_3a68 != PART_3a6a) {
+                if (PART_3a6a->borders_data) {
+                    if (NO_FLAGS(PART_3a6a->flags2, 0x2000)) {
+                        if (!should_parts_skip_collision(PART_3a6c->type, PART_3a6a->type)) {
                             // Changes: TMP_X_3a6a, TMP_Y_3a6a, TMP_X_CENTER_3a6a, TMP_Y_CENTER_3a6a, TMP_X_RIGHT_3a6a, TMP_Y_BOTTOM_3a6a
-                            stub_1050_00a8();
+                            tmp_3a6a_update_vars();
 
                             if (TMP_X_3a6a < TMP_X_RIGHT_3a6c && TMP_X_LEFTMOST_3a6c < TMP_X_RIGHT_3a6a
                                 && TMP_Y_3a6a < TMP_Y_BOTTOM_3a6c && TMP_Y_TOPMOST_3a6c < TMP_Y_BOTTOM_3a6a) {
+                                output_c("A!");
                                 int result = stub_1050_0550(0);
                                 if (result != 0) {
                                     has_found_angle = 1;
-                                    TMP_3a92 = part_get_movement_delta_angle(PART_3a6c);
+                                    TMP_MOVEMENT_ANGLE_3a6c = part_get_movement_delta_angle(PART_3a6c);
+                                    output_int_c(TMP_MOVEMENT_ANGLE_3a6c);
                                 }
                             }
 
-                            // unsure about side-effects from stub_1050_0550
-                            // which is why i haven't merged the below if statement with the above one
+                            // The <= is intentional.
                             if (TMP_X_3a6a <= TMP_X_RIGHT_3a6c && TMP_X_LEFTMOST_3a6c <= TMP_X_RIGHT_3a6a
                                 && TMP_Y_3a6a <= TMP_Y_BOTTOM_3a6c && TMP_Y_TOPMOST_3a6c <= TMP_Y_BOTTOM_3a6a) {
+                                output_c("B!");
                                 int result = stub_1050_08fe(0);
                                 if (result != 0) {
                                     has_found_angle = 1;
-                                    TMP_3a92 = part_get_movement_delta_angle(PART_3a6c);
+                                    TMP_MOVEMENT_ANGLE_3a6c = part_get_movement_delta_angle(PART_3a6c);
+                                    output_int_c(TMP_MOVEMENT_ANGLE_3a6c);
                                 }
                             }
                         }
@@ -1051,6 +1086,8 @@ int stub_1050_02db(struct Part *part) {
                 }
             }
         }
+
+        PART_3a6a = next_part_or_fallback(PART_3a6a, CHOOSE_MOVING_PART);
     }
     PART_3a6a = 0;
 
@@ -1279,7 +1316,7 @@ int stub_10a8_3cc1(struct Part *part) {
                     thing2 = rope_or_pulley_part->extra1;
 
                     stub_10a8_3cc1(other_part);
-                    other_part->flags1 &= ~(0x000f);
+                    other_part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
                     stub_1050_02db(other_part);
                     distance_other_part = distance_to_rope_link(rope, other_part, &delta_other_x, &delta_other_y);
                     mass_delta = distance_other_part - thing2;
@@ -1405,7 +1442,8 @@ int stub_10a8_3cc1(struct Part *part) {
     return 0;
 }
 
-/* TIMWIN: 1080:1777 */
+/* TIMWIN: 1080:1777
+   Note: I double-checked this for accuracy. */
 void stub_1080_1777(struct Part *part) {
     if (ANY_FLAGS(part->flags2, 0x2000)) return;
 
@@ -1424,16 +1462,17 @@ void stub_1080_1777(struct Part *part) {
             struct Part *saved_84 = part->bounce_part;
             byte saved_86_0 = part->bounce_field_0x86[0];
             byte saved_86_1 = part->bounce_field_0x86[1];
+            part->bounce_part = 0;
 
             stub_1050_02db(part);
 
-            if (part->bounce_part == 0) {
+            if (!part->bounce_part) {
                 part->bounce_part = saved_84;
                 part->bounce_field_0x86[0] = saved_86_0;
                 part->bounce_field_0x86[1] = saved_86_1;
             }
         } else {
-            part->flags1 &= 0xfff0;
+            part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
             stub_1050_02db(part);
         }
     }
@@ -1555,8 +1594,8 @@ void stub_1090_0809(struct Part *part) {
 
     x1 = ((lvar4 + lvar5*2) - lvar6) / total_mass;
     x2 = ((lvar5 + lvar4*2) - lvar7) / total_mass;
-    rotate_point_c(&x1, &y1, -angle);
-    rotate_point_c(&x2, &y2, -angle);
+    rotate_point_c(&x1, &y1, uneg(angle));
+    rotate_point_c(&x2, &y2, uneg(angle));
 
     part->vel_hi_precision.x = x1/2;
     part->vel_hi_precision.y = y1/2;
@@ -1668,7 +1707,7 @@ void stub_1090_0644(struct Part *part) {
         }
     }
 
-    rotate_point_c(&x1, &y1, -angle);
+    rotate_point_c(&x1, &y1, uneg(angle));
     part->vel_hi_precision.x = x1;
     part->vel_hi_precision.y = y1;
     part_clamp_to_terminal_velocity(part);
@@ -1710,17 +1749,17 @@ void stub_1090_033f(struct Part *part) {
         }
     }
 
-    s16 c = cosine_c(-angle);
-    s16 s = sine_c(-angle);
+    s16 c = cosine_c(uneg(angle));
+    s16 s = sine_c(uneg(angle));
 
     s16 tmp2;
-    if ((part->vel_hi_precision.x <= 0 || (s16)angle <= 0) && (part->vel_hi_precision.x >= 0 || (s16)angle >= 0)) {
+    if ((part->vel_hi_precision.x <= 0 || utos(angle) <= 0) && (part->vel_hi_precision.x >= 0 || utos(angle) >= 0)) {
         tmp2 = 0;
     } else {
-        tmp2 = abs(((s32)(s*part->vel_hi_precision.x)) >> 0xe);
+        tmp2 = abs(((s32)s*(s32)part->vel_hi_precision.x) >> 0xe);
     }
 
-    s32 tmp4 = abs(((c * abs(part_accel)) >> 0xe) + tmp2);
+    s32 tmp4 = abs((((s32)c * (s32)abs(part_accel)) >> 0xe) + tmp2);
     tmp4 = tmp4 * friction;
     tmp4 = c * (s16)(((u32)tmp4) >> 8);
 
@@ -1749,9 +1788,9 @@ void stub_1090_033f(struct Part *part) {
     part->vel_hi_precision.x = part_vel_x_hi;
 
     if (((angle + 0x4000) & 0x8000) == 0) {
-        part->vel_hi_precision.y = (sine_c(-angle) * part_vel_x_hi) >> 0xe;
+        part->vel_hi_precision.y = (sine_c(uneg(angle)) * part_vel_x_hi) >> 0xe;
     } else {
-        part->vel_hi_precision.y = (sine_c(-angle) * -part_vel_x_hi) >> 0xe;
+        part->vel_hi_precision.y = (sine_c(uneg(angle)) * -part_vel_x_hi) >> 0xe;
     }
 
     part_clamp_to_terminal_velocity(part);
@@ -2029,10 +2068,9 @@ struct Part* stub_10a8_0ab8(struct Part *part) {
 
     EACH_STATIC_THEN_MOVING_PART(curpart) {
         struct Part *somepart = stub_10a8_0880(part, curpart);
-        if (part) {
-            if (ANY_FLAGS(somepart->flags1, 0x8000)) {
-                continue;
-            }
+
+        if (part && ANY_FLAGS(somepart->flags1, 0x8000)) {
+            continue;
         }
 
         if (somepart) {

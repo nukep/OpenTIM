@@ -361,6 +361,8 @@ struct PartDef BOWLING_BALL = {
     .field_0x10 = 0x00f0,
     .field_0x12 = 0x00f0,
 
+    .field_0x14 = 0,
+    .field_0x16 = 0,
     .render_pos_offsets = 0,
     .field_0x1a = 0,
 
@@ -393,6 +395,8 @@ struct PartDef BRICK_WALL = {
     .field_0x10 = 0x0010,
     .field_0x12 = 0x0010,
 
+    .field_0x14 = 0,
+    .field_0x16 = 0,
     .render_pos_offsets = 0,
     .field_0x1a = 0,
 
@@ -917,6 +921,8 @@ struct PartDef BALLOON = {
     .field_0x10 = 0x00f0,
     .field_0x12 = 0x00f0,
 
+    .field_0x14 = 0,
+    .field_0x16 = 0,
     // TIMWIN: 1108:205F. 7 states.
     .render_pos_offsets = (struct SByteVec[7]){ {0, 0}, {-15, -9}, {-20, -5}, {-28, 8}, {-30, 25}, {-26, 41}, {-26, 56} },
     .field_0x1a = 0,

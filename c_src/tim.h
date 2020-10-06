@@ -128,11 +128,12 @@ struct PartDef {
     s16 field_0x12;
 
     // field_0x14 is initialized later.
+    // Number of elements is the number of states (state1).
     struct Data31Field0x14 **field_0x14;
     s16 field_0x16;
     // Number of elements is the number of states (state1).
     struct SByteVec *render_pos_offsets;
-    // Number of elements is the number of states.
+    // Number of elements is the number of states (state1).
     struct ShortVec *field_0x1a;
 
     // "Goobers" is a codename.
