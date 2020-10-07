@@ -247,18 +247,21 @@ pub fn rotate_point(x: i16, y: i16, angle: u16) -> (i16, i16) {
      ((x*s + y*c) >> 0xe) as i16)
 }
 
-
 /// TIMWIN: 10a8:02dc
 #[inline(always)]
 pub fn line_intersection_helper(a: i16, b: i16, c: i16) -> bool {
+    fn i16_to_u16_cast(v: i16) -> u16 {
+        // Defined to wrap the value as two's complement
+        if v >= 0 {
+            v as u16
+        } else {
+            (0x10000 + v as i32) as u16
+        }
+    }
+
     let (b, c) = if b > c { (c, b) } else { (b, c) };
     // (smallest, largest)
-
-    if a < b {
-        false
-    } else {
-        (a - b) <= (c - b)
-    }
+    i16_to_u16_cast(a.wrapping_sub(b)) <= i16_to_u16_cast(c.wrapping_sub(b))
 }
 
 /// TIMWIN: 10a8:00c1
