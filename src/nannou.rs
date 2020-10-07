@@ -123,6 +123,7 @@ struct Model {
     balloon_y: i32,
     
     clicked: bool,
+    show_borders: bool,
 
     mouse_pos: Option<(i32, i32)>,
 }
@@ -154,7 +155,7 @@ fn model(app: &App) -> Model {
         textures.insert(ImageId::new(filename, slice_idx), texture);
     }).unwrap();
 
-    Model { textures, ticks: 0, render_items: vec![], balloon_vel_y: 0, balloon_y: 480<<9, mouse_pos: None, clicked: false }
+    Model { textures, ticks: 0, render_items: vec![], balloon_vel_y: 0, balloon_y: 480<<9, mouse_pos: None, clicked: false, show_borders: false }
 }
 
 // Handle events related to the window and update the model if necessary
@@ -170,6 +171,9 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
         },
         KeyPressed(Key::Space) => {
             model.clicked = !model.clicked;
+        },
+        KeyPressed(Key::B) => {
+            model.show_borders = !model.show_borders;
         },
         _ => ()
     }
@@ -274,57 +278,56 @@ fn view(app: &App, model: &Model, frame: Frame) {
             draw.polygon().rgba8(0,0,0,64).points(border_iter);
 
             // Draw normals
+            if model.show_borders {
+                // Big crazy iterator that yields a pair of the border point and the next one. (point_n, point_n+1).
+                let niter = part.border_points().iter().zip(part.border_points().iter().cycle().skip(1)).take(part.border_points().iter().count());
 
-            // Big crazy iterator that yields a pair of the border point and the next one. (point_n, point_n+1).
-            let niter = part.border_points().iter().zip(part.border_points().iter().cycle().skip(1)).take(part.border_points().iter().count());
+                for (a, b) in niter {
+                    let normal = a.normal_angle as f32 / 65536.0;
+                    let ox = part_x + (a.x as f32 + b.x as f32) / 2.0;
+                    let oy = part_y + (a.y as f32 + b.y as f32) / 2.0;
 
-            for (a, b) in niter {
-                let normal = a.normal_angle as f32 / 65536.0;
-                let ox = part_x + (a.x as f32 + b.x as f32) / 2.0;
-                let oy = part_y + (a.y as f32 + b.y as f32) / 2.0;
+                    let s = f32::sin(normal*3.141592*2.0) * 3.0;
+                    let c = f32::cos(normal*3.141592*2.0) * 3.0;
 
-                let s = f32::sin(normal*3.141592*2.0) * 3.0;
-                let c = f32::cos(normal*3.141592*2.0) * 3.0;
+                    let (ox, oy) = transform(ox, oy);
 
-                let (ox, oy) = transform(ox, oy);
-
-                draw.line().color(BLACK).points(pt2(ox, oy), pt2(ox-s, oy+c));
-
-                // draw.ellipse().color(BLACK).width(2.0).height(2.0).x_y(ox, oy);
+                    draw.line().color(BLACK).points(pt2(ox, oy), pt2(ox-s, oy+c));
+                }
             }
-
-            // draw.rect
         }
     }
 
-    for item in model.render_items.iter() {
-        match item {
-            RenderItem::Image { id, x, y } => {
-                if let Some(t) = model.textures.get(id) {
-                    let [w, h] = t.size();
-                    let (sx, sy) = transform(*x as f32 + w as f32 / 2.0, *y as f32 + h as f32 / 2.0);
-                    draw.texture(t)
-                    .x_y(sx, sy);
-                }
-            },
-            &RenderItem::Rope { x1, y1, x2, y2, sag } => {
-                let x1 = x1 as f32;
-                let y1 = y1 as f32;
-                let x2 = x2 as f32;
-                let y2 = y2 as f32;
-                let sag = sag as f32;
-                let verts = quad_bezier_curve_iter((x1, y1), ((x1+x2)/2.0, (y1+y2)/2.0 + sag), (x2, y2), 10);
-                let points_iter = verts.map(|(x, y)| transform(x, y)).map(|(x, y)| pt2(x, y));
+    if !model.show_borders {
+        for item in model.render_items.iter() {
+            match item {
+                RenderItem::Image { id, x, y } => {
+                    if let Some(t) = model.textures.get(id) {
+                        let [w, h] = t.size();
+                        let (sx, sy) = transform(*x as f32 + w as f32 / 2.0, *y as f32 + h as f32 / 2.0);
+                        draw.texture(t)
+                        .x_y(sx, sy);
+                    }
+                },
+                &RenderItem::Rope { x1, y1, x2, y2, sag } => {
+                    let x1 = x1 as f32;
+                    let y1 = y1 as f32;
+                    let x2 = x2 as f32;
+                    let y2 = y2 as f32;
+                    let sag = sag as f32;
+                    let verts = quad_bezier_curve_iter((x1, y1), ((x1+x2)/2.0, (y1+y2)/2.0 + sag), (x2, y2), 10);
+                    let points_iter = verts.map(|(x, y)| transform(x, y)).map(|(x, y)| pt2(x, y));
 
-                // Black outline
-                draw.polyline().weight(4.0).rgba8(0,0,0,255).points(points_iter.clone());
-                // Rope color
-                draw.polyline().weight(2.0).rgba8(240,176,0,255).points(points_iter);
-            },
-            RenderItem::Text { x, y, text } => {
-                let (x, y) = transform(*x as f32, *y as f32);
-                draw.text(text).x_y(x, y).left_justify().align_text_top().color(BLACK);
-            },
+                    // Black outline
+                    draw.polyline().weight(4.0).rgba8(0,0,0,255).points(points_iter.clone());
+                    // Rope color
+                    draw.polyline().weight(2.0).rgba8(240,176,0,255).points(points_iter);
+                },
+                RenderItem::Text { x, y, text } => {
+                    let (x, y) = transform(*x as f32, *y as f32);
+                    draw.text(text).x_y(x, y).left_justify().align_text_top().color(BLACK);
+                },
+            }
         }
     }
 
