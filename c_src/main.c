@@ -1034,7 +1034,7 @@ int stub_1050_02db(struct Part *part) {
 
     if (part->bounce_part && !bucket_contains(part, part->bounce_part)) {
         PART_3a6a = PART_3a68;
-        if (PART_3a68->borders_data && NO_FLAGS(PART_3a68->flags2, 0x2000)) {
+        if (PART_3a68->borders_data && NO_FLAGS(PART_3a68->flags2, F2_DISAPPEARED)) {
             // Changes: TMP_X_3a6a, TMP_Y_3a6a, TMP_X_CENTER_3a6a, TMP_Y_CENTER_3a6a, TMP_X_RIGHT_3a6a, TMP_Y_BOTTOM_3a6a
             tmp_3a6a_update_vars();
 
@@ -1065,7 +1065,7 @@ int stub_1050_02db(struct Part *part) {
         if (!bucket_contains(PART_3a6c, PART_3a6a)) {
             if (PART_3a6c != PART_3a6a && PART_3a68 != PART_3a6a) {
                 if (PART_3a6a->borders_data) {
-                    if (NO_FLAGS(PART_3a6a->flags2, 0x2000)) {
+                    if (NO_FLAGS(PART_3a6a->flags2, F2_DISAPPEARED)) {
                         if (!should_parts_skip_collision(PART_3a6c->type, PART_3a6a->type)) {
                             // Changes: TMP_X_3a6a, TMP_Y_3a6a, TMP_X_CENTER_3a6a, TMP_Y_CENTER_3a6a, TMP_X_RIGHT_3a6a, TMP_Y_BOTTOM_3a6a
                             tmp_3a6a_update_vars();
@@ -1452,7 +1452,7 @@ int stub_10a8_3cc1(struct Part *part) {
 /* TIMWIN: 1080:1777
    Note: I double-checked this for accuracy. */
 void stub_1080_1777(struct Part *part) {
-    if (ANY_FLAGS(part->flags2, 0x2000)) return;
+    if (ANY_FLAGS(part->flags2, F2_DISAPPEARED)) return;
 
     if (part->type != P_TEAPOT) {
         part_run(part);
@@ -1495,7 +1495,7 @@ void bucket_handle_contained_parts(struct Part *bucket) {
 
     EACH_MOVING_PART(curpart) {
         if (bucket == curpart) continue;
-        if (ANY_FLAGS(curpart->flags2, 0x2000)) continue;
+        if (ANY_FLAGS(curpart->flags2, F2_DISAPPEARED)) continue;
         if (curpart->type == P_CAGE) continue;
 
         s16 curpart_x_center = curpart->pos_prev1.x + curpart->size.x/2;
@@ -2115,19 +2115,19 @@ void advance_parts() {
     move_llama2_to_beginning_of_llama1();
 
     EACH_STATIC_PART(part) {
-        if (ANY_FLAGS(part->flags2, 0x0800) && NO_FLAGS(part->flags2, 0x2000 | 0x0040)) {
+        if (ANY_FLAGS(part->flags2, 0x0800) && NO_FLAGS(part->flags2, F2_DISAPPEARED | 0x0040)) {
             part_run(part);
         }
     }
 
     EACH_STATIC_PART(part) {
-        if (part->type == P_GEAR && NO_FLAGS(part->flags2, 0x2000 | 0x0040)) {
+        if (part->type == P_GEAR && NO_FLAGS(part->flags2, F2_DISAPPEARED | 0x0040)) {
             part_run(part);
         }
     }
 
     EACH_STATIC_PART(part) {
-        if (NO_FLAGS(part->flags2, 0x2000 | 0x0800 | 0x0040)) {
+        if (NO_FLAGS(part->flags2, F2_DISAPPEARED | 0x0800 | 0x0040)) {
             part_run(part);
         }
     }
@@ -2139,7 +2139,7 @@ void advance_parts() {
     }
 
     EACH_MOVING_PART(part) {
-        if (NO_FLAGS(part->flags2, 0x2000)) {
+        if (NO_FLAGS(part->flags2, F2_DISAPPEARED)) {
             part_update_vel_and_force(part);
         }
         part->mass = part_mass(part->type);
@@ -2175,7 +2175,7 @@ void advance_parts() {
     }
 
     EACH_MOVING_PART(part) {
-        if (NO_FLAGS(part->flags1, 0x0008) && NO_FLAGS(part->flags2, 0x2000)) {
+        if (NO_FLAGS(part->flags1, 0x0008) && NO_FLAGS(part->flags2, F2_DISAPPEARED)) {
             if (ANY_FLAGS(part->flags1, 0x0004 | 0x0002) && part->type == P_MEL_SCHLEMMING) {
                 MEL_JUMPY(part);
             }
@@ -2202,7 +2202,7 @@ void advance_parts() {
     }
 
     EACH_STATIC_THEN_MOVING_PART(part) {
-        if (ANY_FLAGS(part->flags2, 0x2000)) continue;
+        if (ANY_FLAGS(part->flags2, F2_DISAPPEARED)) continue;
 
         if (VEC_EQ(part->pos, part->pos_prev1) && part->state1 == part->state1_prev1) {
             if (!VEC_EQ(part->pos, part->pos_prev1) || part->state1 != part->state1_prev1) {

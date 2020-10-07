@@ -21,6 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let teeter_totter_raw = unsafe { tim_c::part_new(3) };
     let brick_wall_raw = unsafe { tim_c::part_new(1) };
     let brick_wall2_raw = unsafe { tim_c::part_new(1) };
+    let nail_raw = unsafe { tim_c::part_new(53) };
+
 
     {
         let bowling_ball: &mut tim_c::Part = unsafe { bowling_ball_raw.as_mut().unwrap() };
@@ -70,6 +72,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         incline2.original_pos_x = 16*11;
         incline2.original_pos_y = 16*23;
         // incline2.size_something2.x = 48;
+
+        let nail: &mut tim_c::Part = unsafe { nail_raw.as_mut().unwrap() };
+        nail.flags1 |= 0x2000;
+        nail.original_pos_x = 16*7;
+        nail.original_pos_y = 16*5;
     }
 
     unsafe {
@@ -83,6 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tim_c::insert_part_into_static_parts(incline_raw);
         tim_c::insert_part_into_static_parts(incline2_raw);
         tim_c::insert_part_into_static_parts(teeter_totter_raw);
+        tim_c::insert_part_into_static_parts(nail_raw);
         tim_c::part_resize(incline_raw);
         tim_c::restore_parts_state_from_design();
         // tim_c::part_flip(incline_raw, 0);

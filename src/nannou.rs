@@ -202,9 +202,11 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     {
         let iter = unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) };
         for part in iter {
-            let part_x = part.pos_render.x as i32;
-            let part_y = part.pos_render.y as i32;
-            render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, part.state1 as usize), x: part_x, y: part_y });
+            if part.flags2 & 0x2000 == 0 {
+                let part_x = part.pos_render.x as i32;
+                let part_y = part.pos_render.y as i32;
+                render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, part.state1 as usize), x: part_x, y: part_y });
+            }
         }
     }
 

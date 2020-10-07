@@ -247,23 +247,23 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
 
 
     // some hard-coded part sizes until we implement loading them from the resource files
-    let t = match part_type {
-        0 => Some((32, 32)),
-        1 => Some((16, 16)),
-        2 => match index {
+    let t = match PartType::from_u16(part_type as u16) {
+        PartType::BowlingBall => Some((32, 32)),
+        PartType::BrickWall => Some((16, 16)),
+        PartType::Incline => match index {
             0 => Some((16, 32)),
             1 => Some((32, 32)),
             2 => Some((48, 32)),
             3 => Some((64, 32)),
             _ => None
         },
-        3 => match index {
+        PartType::TeeterTotter => match index {
             0 => Some((80, 36)),
             1 => Some((80, 23)),
             2 => Some((80, 36)),
             _ => None
         },
-        4 => match index {
+        PartType::Balloon => match index {
             0 => Some((32, 48)),
             1 => Some((72, 71)),
             2 => Some((80, 67)),
@@ -273,6 +273,7 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
             6 => Some((88, 50)),
             _ => None
         },
+        PartType::Nail => Some((16, 17)),
         _ => None
     };
 

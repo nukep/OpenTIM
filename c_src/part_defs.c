@@ -234,26 +234,32 @@ u16 part_order(enum PartType type) {
     return def->part_order;
 }
 
+/* TIMWIN: 1090:0dca */
 int default_bounce(struct Part *part) {
     return 1;
 }
 
+/* TIMWIN: 1090:0de2 */
 void default_run(struct Part *part) {
     return;
 }
 
+/* TIMWIN: 1090:0e0c */
 void default_flip(struct Part *part, int flag) {
     return;
 }
 
+/* TIMWIN: 1090:0df7 */
 void default_reset(struct Part *part) {
     return;
 }
 
+/* TIMWIN: 1090:0e21 */
 void default_resize(struct Part *part) {
     return;
 }
 
+/* TIMWIN: 1090:0e36 */
 int default_rope(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_pass, s32 p1_force) {
     return 0;
 }
@@ -500,7 +506,7 @@ void part_find_interactions(struct Part *part, enum GetPartsFlags choice, s16 hi
 
     for (struct Part *curpart = get_first_part(choice); curpart != 0; curpart = next_part_or_fallback(curpart, choice & CHOOSE_MOVING_PART)) {
         if (curpart == part) continue;
-        if (ANY_FLAGS(curpart->flags2, 0x2000)) continue;
+        if (ANY_FLAGS(curpart->flags2, F2_DISAPPEARED)) continue;
 
         s16 cx = curpart->pos.x;
         s16 cy = curpart->pos.y;
@@ -907,9 +913,9 @@ void run_teeter_totter(struct Part *part) {
                     stub_1050_02db(curpart);
                     curpart->pos_prev1.y = curpart->pos.y + 16;
 
-                    part->flags2 |= 0x2000;
+                    part->flags2 |= F2_DISAPPEARED;
                     stub_1050_02db(curpart);
-                    part->flags2 &= ~0x2000; 
+                    part->flags2 &= ~F2_DISAPPEARED; 
 
                     curpart->pos_prev1.y = curpart->pos.y;
                     curpart->pos_y_hi_precision = curpart->pos.y * 512;
@@ -918,9 +924,9 @@ void run_teeter_totter(struct Part *part) {
                     stub_1050_02db(curpart);
                     curpart->pos_prev1.y = curpart->pos.y - 16;
 
-                    part->flags2 |= 0x2000;
+                    part->flags2 |= F2_DISAPPEARED;
                     stub_1050_02db(curpart);
-                    part->flags2 &= ~0x2000;
+                    part->flags2 &= ~F2_DISAPPEARED;
 
                     curpart->pos_prev1.y = curpart->pos.y;
                     curpart->pos_y_hi_precision = (curpart->pos.y + 1) * 512 - 1;
@@ -1064,7 +1070,7 @@ void run_balloon(struct Part *part) {
 
     if (part->state1 == 6) {
         stub_10a8_2b6d(part, 3);
-        part->flags2 |= 0x2000;
+        part->flags2 |= F2_DISAPPEARED;
         return;
     }
 
@@ -1119,6 +1125,34 @@ int rope_balloon(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16
             return 0;
         }
     }
+}
+
+/* TIMWIN: 1088:178c */
+int bounce_nail(struct Part *part) {
+    if (part->type == P_BALLOON) {
+        u16 angle = part->bounce_angle;
+        if (angle == 0x5e00 || angle == 0x8000 || angle == 0x9c90) {
+            part->state2 = 1;
+        }
+    }
+
+    return 1;
+}
+
+/* TIMWIN: 1088:17ca */
+void reset_nail(struct Part *part) {
+    // TIMWIN: 1108:0e5e
+    static const struct ByteVec NAIL_BORDERS[] = {
+        { 0, 0 }, { 12, 0 }, { 6, 16 }
+    };
+    set_border(part, NAIL_BORDERS);
+}
+
+/* TIMWIN: 1078:1087 */
+int create_nail(struct Part *part) {
+    ALLOC_BORDERS(part);
+    reset_nail(part);
+    return 0;
 }
 
 struct PartDef BOWLING_BALL = {
@@ -1287,6 +1321,39 @@ struct PartDef BALLOON = {
     .rope_func = rope_balloon,
 };
 
+struct PartDef NAIL = {
+    .flags1 = 0x4800,
+    .flags3 = 0x0008,
+    .size_something2 = { 14, 17 },
+    .size = { 14, 17 },
+    .create_func = create_nail,
+
+    .density = 7552,
+    .mass = 20,
+    .bounciness = 1024,
+    .friction = 2,
+
+    .field_0x0c = 0x0000,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x00f0,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
+
+    .goobers = { 4, 0xff },
+    .borders = 3,
+    .part_order = 52,
+
+    .bounce_func = bounce_nail,
+    .run_func = default_run,
+    .reset_func = reset_nail,
+    .flip_func = default_flip,
+    .resize_func = default_resize,
+    .rope_func = rope_balloon,
+};
+
 struct PartDef *part_def(enum PartType type) {
     switch (type) {
         case P_BOWLING_BALL: return &BOWLING_BALL;
@@ -1294,6 +1361,7 @@ struct PartDef *part_def(enum PartType type) {
         case P_INCLINE: return &INCLINE;
         case P_TEETER_TOTTER: return &TEETER_TOTTER;
         case P_BALLOON: return &BALLOON;
+        case P_NAIL: return &NAIL;
         default: return 0;
     }
 }

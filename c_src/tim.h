@@ -40,6 +40,7 @@ enum Flags1_Flags {
 enum Flags2_Flags {
     F2_FLIP_HORZ = 0x0010,
     F2_FLIP_VERT = 0x0020,
+    F2_DISAPPEARED = 0x2000
 };
 
 enum Flags3_Flags {
