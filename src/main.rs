@@ -6,6 +6,8 @@ mod buffer_snake;
 mod debug;
 mod decoders;
 mod resource_dos;
+mod atmosphere;
+mod part;
 mod math;
 mod nannou;
 mod tim_c;
@@ -13,6 +15,7 @@ mod tim_c;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bowling_ball_raw = unsafe { tim_c::part_new(0) };
     let balloon_raw = unsafe { tim_c::part_new(4) };
+    let incline_raw = unsafe { tim_c::part_new(2) };
     let brick_wall_raw = unsafe { tim_c::part_new(1) };
     let brick_wall2_raw = unsafe { tim_c::part_new(1) };
 
@@ -21,12 +24,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         bowling_ball.flags1 = 0x1000;
         bowling_ball.flags2 = 0x0000;
         bowling_ball.flags3 = 0x0008;
-        bowling_ball.original_pos_x = 176;
-        bowling_ball.original_pos_y = 100;
+        bowling_ball.original_pos_x = 270;
+        bowling_ball.original_pos_y = 150;
 
         let balloon: &mut tim_c::Part = unsafe { balloon_raw.as_mut().unwrap() };
-        balloon.original_pos_x = 230;
-        balloon.original_pos_y = 340;
+        balloon.original_pos_x = 200;
+        balloon.original_pos_y = 300;
 
         let brick_wall: &mut tim_c::Part = unsafe { brick_wall_raw.as_mut().unwrap() };
         brick_wall.original_pos_x = 176;
@@ -37,12 +40,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         brick_wall.flags3 = 0x0000;     
 
         let brick_wall2: &mut tim_c::Part = unsafe { brick_wall2_raw.as_mut().unwrap() };
-        brick_wall2.original_pos_x = 176;
-        brick_wall2.original_pos_y = 32;
+        brick_wall2.original_pos_x = 176 + 16*1;
+        brick_wall2.original_pos_y = 16*5;
         brick_wall2.size_something2.x = 16*8;
         brick_wall2.flags1 = 0x6040;
         brick_wall2.flags2 = 0x0180;     // was originally set
-        brick_wall2.flags3 = 0x0000;     
+        brick_wall2.flags3 = 0x0000;
+
+        let incline: &mut tim_c::Part = unsafe { incline_raw.as_mut().unwrap() };
+        incline.flags1 |= 0x2000;
+        incline.original_pos_x = 16*12;
+        incline.original_pos_y = 16*8;
+        incline.size_something2.x = 48;
     }
 
     unsafe {
@@ -50,7 +59,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tim_c::insert_part_into_moving_parts(balloon_raw);
         tim_c::insert_part_into_static_parts(brick_wall_raw);
         tim_c::insert_part_into_static_parts(brick_wall2_raw);
+        tim_c::insert_part_into_static_parts(incline_raw);
+        tim_c::part_resize(incline_raw);
         tim_c::restore_parts_state_from_design();
+        // tim_c::part_flip(incline_raw, 0);
         // for _ in 0..60 {
         //     tim_c::advance_parts();
         //     tim_c::all_parts_set_prev_vars();

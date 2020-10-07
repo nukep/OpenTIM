@@ -1,8 +1,68 @@
 #include "tim.h"
 
+// struct Data31Field0x14 {
+//     s16 field_0x00;        // TIMWIN offset: 00
+//     struct ShortVec size;   // TIMWIN offset: 04
+// };
+
+struct PartDef {
+    // Fields henceforth correlate to Segment 30 in TIMWIN
+
+    u16 flags1;                        // TIMWIN offset: 00
+    u16 flags3;                        // TIMWIN offset: 02
+    struct ShortVec size_something2;    // TIMWIN offset: 04
+    struct ShortVec size;               // TIMWIN offset: 08
+    int (*create_func)(struct Part *);  // TIMWIN offset: 0A
+
+    // Fields henceforth correlate to Segment 31 in TIMWIN
+
+    u16 density;               // TIMWIN offset: 00
+    s16 mass;                  // TIMWIN offset: 02
+    s16 bounciness;            // TIMWIN offset: 04
+    s16 friction;              // TIMWIN offset: 06
+
+    // calculated:
+    // OpenTIM - removed
+    // TIM would modify this data structure whenver the air pressure or gravity changed, to pre-calculate these properties.
+    // To keep the implementation simple, we'll recalculate these each time.
+    // s16 acceleration;          // TIMWIN offset: 08
+    // s16 terminal_velocity;     // TIMWIN offset: 0A
+
+    s16 field_0x0c;
+    s16 field_0x0e;
+    s16 field_0x10;
+    s16 field_0x12;
+
+    // field_0x14 is initialized later.
+    // Number of elements is the number of states (state1).
+    // OpenTIM - removed
+    // we get the image size (the only important part I'm aware of) via part_image_size
+    // struct Data31Field0x14 **field_0x14;
+
+    s16 field_0x16;
+    // Number of elements is the number of states (state1).
+    struct SByteVec *render_pos_offsets;
+    // Number of elements is the number of states (state1).
+    struct ShortVec *field_0x1a;
+
+    // "Goobers" is a codename.
+    byte goobers[2];            // TIMWIN offset: 0x1c
+
+    u16 borders;               // TIMWIN offset: 0x1e
+    u16 part_order;            // TIMWIN offset: 0x20
+
+    int  (*bounce_func)(struct Part *);
+    void (*run_func)   (struct Part *);
+    void (*reset_func) (struct Part *);
+    void (*flip_func)  (struct Part *, int);
+    void (*resize_func)(struct Part *);
+    int  (*rope_func)  (struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force);
+};
+
 void part_calculate_border_normals(struct Part *);
 void part_set_size_and_pos_render(struct Part *part);
 void stub_10a8_2b6d(struct Part *part, int c);
+void stub_10a8_21cb(struct Part *part, u8 c);
 int stub_1050_02db(struct Part *part);
 bool calculate_line_intersection(const struct Line *a, const struct Line *b, struct ShortVec *out);
 struct Part* part_new(enum PartType type);
@@ -86,6 +146,30 @@ int part_bounce(enum PartType type, struct Part *part) {
     }
 
     return def->bounce_func(part);
+}
+
+void part_flip(struct Part *part, int flag) {
+    struct PartDef *def = part_def(part->type);
+    if (!def) {
+        TRACE_ERROR("part_flip - def not found");
+        return 0;
+    }
+
+    if (def->flip_func) {
+        def->flip_func(part, flag);
+    }
+}
+
+void part_resize(struct Part *part) {
+    struct PartDef *def = part_def(part->type);
+    if (!def) {
+        TRACE_ERROR("part_resize - def not found");
+        return 0;
+    }
+
+    if (def->resize_func) {
+        def->resize_func(part);
+    }
 }
 
 int part_rope(enum PartType type, struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force) {
@@ -243,6 +327,66 @@ int create_wall(struct Part *part) {
     ALLOC_BORDERS(part);
     reset_wall(part);
     return 0;
+}
+
+/* TIMWIN: 1080:1388 */
+void reset_incline(struct Part *part) {
+    /* TIMWIN: 1108:0DC0 */
+    static const u8 DAT_0DC0[4][4][2] = {
+        { {0, 0}, {15, 15}, {15, 31}, {0, 16} },
+        { {0, 0}, {31, 15}, {31, 31}, {0, 16} },
+        { {0, 0}, {47, 15}, {47, 31}, {0, 16} },
+        { {0, 0}, {63, 15}, {63, 31}, {0, 16} }
+    };
+    /* TIMWIN: 1108:0DE8 */
+    static const DAT_0DE8[4][4][2] = {
+        { {0, 15}, {15, 0}, {15, 16}, {0, 31} },
+        { {0, 15}, {31, 0}, {31, 16}, {0, 31} },
+        { {0, 15}, {47, 0}, {47, 16}, {0, 31} },
+        { {0, 15}, {63, 0}, {63, 16}, {0, 31} }
+    };
+
+    if (NO_FLAGS(part->flags2, F2_FLIP_HORZ)) {
+        for (int i = 0; i < 4; i++) {
+            part->borders_data[i].x = DAT_0DC0[part->state1][i][0];
+            part->borders_data[i].y = DAT_0DC0[part->state1][i][1];
+        }
+    } else {
+        for (int i = 0; i < 4; i++) {
+            part->borders_data[i].x = DAT_0DE8[part->state1][i][0];
+            part->borders_data[i].y = DAT_0DE8[part->state1][i][1];
+        }
+    }
+
+    part_calculate_border_normals(part);
+}
+
+/* TIMWIN: 1078:02cc */
+int create_incline(struct Part *part) {
+    part->flags1 |= 0x0400 | 0x0200;
+    part->flags2 |= 0x0080;
+    part->state1 = 1;
+    part->original_state1 = 1;
+
+    ALLOC_BORDERS(part);
+    reset_incline(part);
+    return 0;
+}
+
+/* TIMWIN: 1080:1427 */
+void flip_incline(struct Part *part, int flag)  {
+    part->flags2 ^= F2_FLIP_HORZ;
+    reset_incline(part);
+    stub_10a8_2b6d(part, 3);
+    stub_10a8_21cb(part, 2);
+}
+
+/* TIMWIN: 1080:13ec */
+void resize_incline(struct Part *part) {
+    part->size = part->size_something2;
+    part->state1 = part->size.x/16 - 1;
+    part->original_state1 = part->state1;
+    reset_incline(part);
 }
 
 /* TIMWIN: 10d0:0114 */
@@ -407,6 +551,39 @@ struct PartDef BRICK_WALL = {
     .reset_func = reset_wall,
     .flip_func = default_flip,
     .resize_func = resize_wall,
+    .rope_func = default_rope,
+};
+
+struct PartDef INCLINE = {
+    .flags1 = 0x4800,
+    .flags3 = 0x0000,
+    .size_something2 = { 32, 32 },
+    .size = { 32, 32 },
+    .create_func = create_incline,
+
+    .density = 1510,
+    .mass = 1000,
+    .bounciness = 1024,
+    .friction = 16,
+    
+    .field_0x0c = 0x0040,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x0010,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
+
+    .goobers = { 4, 0xff },
+    .borders = 4,
+    .part_order = 44,
+
+    .bounce_func = default_bounce,
+    .run_func = default_run,
+    .reset_func = reset_incline,
+    .flip_func = flip_incline,
+    .resize_func = resize_incline,
     .rope_func = default_rope,
 };
 
@@ -940,6 +1117,7 @@ struct PartDef *part_def(enum PartType type) {
     switch (type) {
         case P_BOWLING_BALL: return &BOWLING_BALL;
         case P_BRICK_WALL: return &BRICK_WALL;
+        case P_INCLINE: return &INCLINE;
         case P_BALLOON: return &BALLOON;
         default: return 0;
     }

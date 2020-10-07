@@ -1,8 +1,6 @@
 #ifndef TIM_H
 #define TIM_H
 
-#include "testing.h"
-
 #include <stdlib.h>
 
 // Used by Emscripten
@@ -93,65 +91,6 @@ struct Part* next_part_or_fallback(struct Part *part, int choice);
 #define NO_FLAGS(v, f)  (((v) & (f)) == 0)
 #define ANY_FLAGS(v, f) (((v) & (f)) != 0)
 #define ALL_FLAGS(v, f) (((v) & (f)) == f)
-
-// struct Data31Field0x14 {
-//     s16 field_0x00;        // TIMWIN offset: 00
-//     struct ShortVec size;   // TIMWIN offset: 04
-// };
-
-struct PartDef {
-    // Fields henceforth correlate to Segment 30 in TIMWIN
-
-    u16 flags1;                        // TIMWIN offset: 00
-    u16 flags3;                        // TIMWIN offset: 02
-    struct ShortVec size_something2;    // TIMWIN offset: 04
-    struct ShortVec size;               // TIMWIN offset: 08
-    int (*create_func)(struct Part *);  // TIMWIN offset: 0A
-
-    // Fields henceforth correlate to Segment 31 in TIMWIN
-
-    s16 density;               // TIMWIN offset: 00
-    s16 mass;                  // TIMWIN offset: 02
-    s16 bounciness;            // TIMWIN offset: 04
-    s16 friction;              // TIMWIN offset: 06
-
-    // calculated:
-    // OpenTIM - removed
-    // TIM would modify this data structure whenver the air pressure or gravity changed, to pre-calculate these properties.
-    // To keep the implementation simple, we'll recalculate these each time.
-    // s16 acceleration;          // TIMWIN offset: 08
-    // s16 terminal_velocity;     // TIMWIN offset: 0A
-
-    s16 field_0x0c;
-    s16 field_0x0e;
-    s16 field_0x10;
-    s16 field_0x12;
-
-    // field_0x14 is initialized later.
-    // Number of elements is the number of states (state1).
-    // OpenTIM - removed
-    // we get the image size (the only important part I'm aware of) via part_image_size
-    // struct Data31Field0x14 **field_0x14;
-
-    s16 field_0x16;
-    // Number of elements is the number of states (state1).
-    struct SByteVec *render_pos_offsets;
-    // Number of elements is the number of states (state1).
-    struct ShortVec *field_0x1a;
-
-    // "Goobers" is a codename.
-    byte goobers[2];            // TIMWIN offset: 0x1c
-
-    u16 borders;               // TIMWIN offset: 0x1e
-    u16 part_order;            // TIMWIN offset: 0x20
-
-    int  (*bounce_func)(struct Part *);
-    void (*run_func)   (struct Part *);
-    void (*reset_func) (struct Part *);
-    void (*flip_func)  (struct Part *, int);
-    void (*resize_func)(struct Part *);
-    int  (*rope_func)  (struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force);
-};
 
 // Part Def accessors
 
