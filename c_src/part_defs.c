@@ -491,104 +491,6 @@ void reset_unknown39(struct Part *part) {
     part->rope_loc[0].y = 0;
 }
 
-struct PartDef BOWLING_BALL = {
-    .flags1 = 0x0800,
-    .flags3 = 0x0008,
-    .size_something2 = { 32, 32 },
-    .size = { 32, 32 },
-    .create_func = create_bowling_ball,
-    .density = 2832,
-    .mass = 200,
-    .bounciness = 128,
-    .friction = 16,
-
-    .field_0x0c = 0x0000,
-    .field_0x0e = 0x0000,
-    .field_0x10 = 0x00f0,
-    .field_0x12 = 0x00f0,
-
-    .field_0x16 = 0,
-    .render_pos_offsets = 0,
-    .field_0x1a = 0,
-
-    .goobers = { 3, 0xff },
-    .borders = 8,
-    .part_order = 0,
-
-    .bounce_func = default_bounce,
-    .run_func = default_run,
-    .reset_func = reset_bowling_ball_and_basketball,
-    .flip_func = default_flip,
-    .resize_func = default_resize,
-    .rope_func = default_rope,
-};
-
-struct PartDef BRICK_WALL = {
-    .flags1 = 0x4800,
-    .flags3 = 0x0000,
-    .size_something2 = { 32, 16 },
-    .size = { 32, 16 },
-    .create_func = create_wall,
-
-    .density = 4153,
-    .mass = 1000,
-    .bounciness = 1024,
-    .friction = 24,
-    
-    .field_0x0c = 0x00f0,
-    .field_0x0e = 0x00f0,
-    .field_0x10 = 0x0010,
-    .field_0x12 = 0x0010,
-
-    .field_0x16 = 0,
-    .render_pos_offsets = 0,
-    .field_0x1a = 0,
-
-    .goobers = { 4, 0xff },
-    .borders = 4,
-    .part_order = 40,
-
-    .bounce_func = default_bounce,
-    .run_func = default_run,
-    .reset_func = reset_wall,
-    .flip_func = default_flip,
-    .resize_func = resize_wall,
-    .rope_func = default_rope,
-};
-
-struct PartDef INCLINE = {
-    .flags1 = 0x4800,
-    .flags3 = 0x0000,
-    .size_something2 = { 32, 32 },
-    .size = { 32, 32 },
-    .create_func = create_incline,
-
-    .density = 1510,
-    .mass = 1000,
-    .bounciness = 1024,
-    .friction = 16,
-    
-    .field_0x0c = 0x0040,
-    .field_0x0e = 0x0000,
-    .field_0x10 = 0x0010,
-    .field_0x12 = 0x00f0,
-
-    .field_0x16 = 0,
-    .render_pos_offsets = 0,
-    .field_0x1a = 0,
-
-    .goobers = { 4, 0xff },
-    .borders = 4,
-    .part_order = 44,
-
-    .bounce_func = default_bounce,
-    .run_func = default_run,
-    .reset_func = reset_incline,
-    .flip_func = flip_incline,
-    .resize_func = resize_incline,
-    .rope_func = default_rope,
-};
-
 /* TIMWIN: 1090:11dc */
 void part_find_interactions(struct Part *part, enum GetPartsFlags choice, s16 hitbox_left, s16 hitbox_right, s16 hitbox_top, s16 hitbox_bottom) {
     part->interactions = 0;
@@ -1219,6 +1121,103 @@ int rope_balloon(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16
     }
 }
 
+struct PartDef BOWLING_BALL = {
+    .flags1 = 0x0800,
+    .flags3 = 0x0008,
+    .size_something2 = { 32, 32 },
+    .size = { 32, 32 },
+    .create_func = create_bowling_ball,
+    .density = 2832,
+    .mass = 200,
+    .bounciness = 128,
+    .friction = 16,
+
+    .field_0x0c = 0x0000,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x00f0,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
+
+    .goobers = { 3, 0xff },
+    .borders = 8,
+    .part_order = 0,
+
+    .bounce_func = default_bounce,
+    .run_func = default_run,
+    .reset_func = reset_bowling_ball_and_basketball,
+    .flip_func = default_flip,
+    .resize_func = default_resize,
+    .rope_func = default_rope,
+};
+
+struct PartDef BRICK_WALL = {
+    .flags1 = 0x4800,
+    .flags3 = 0x0000,
+    .size_something2 = { 32, 16 },
+    .size = { 32, 16 },
+    .create_func = create_wall,
+
+    .density = 4153,
+    .mass = 1000,
+    .bounciness = 1024,
+    .friction = 24,
+
+    .field_0x0c = 0x00f0,
+    .field_0x0e = 0x00f0,
+    .field_0x10 = 0x0010,
+    .field_0x12 = 0x0010,
+
+    .field_0x16 = 0,
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
+
+    .goobers = { 4, 0xff },
+    .borders = 4,
+    .part_order = 40,
+
+    .bounce_func = default_bounce,
+    .run_func = default_run,
+    .reset_func = reset_wall,
+    .flip_func = default_flip,
+    .resize_func = resize_wall,
+    .rope_func = default_rope,
+};
+
+struct PartDef INCLINE = {
+    .flags1 = 0x4800,
+    .flags3 = 0x0000,
+    .size_something2 = { 32, 32 },
+    .size = { 32, 32 },
+    .create_func = create_incline,
+
+    .density = 1510,
+    .mass = 1000,
+    .bounciness = 1024,
+    .friction = 16,
+
+    .field_0x0c = 0x0040,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x0010,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
+
+    .goobers = { 4, 0xff },
+    .borders = 4,
+    .part_order = 44,
+
+    .bounce_func = default_bounce,
+    .run_func = default_run,
+    .reset_func = reset_incline,
+    .flip_func = flip_incline,
+    .resize_func = resize_incline,
+    .rope_func = default_rope,
+};
 
 struct PartDef TEETER_TOTTER = {
     .flags1 = 0x4800,
@@ -1231,7 +1230,7 @@ struct PartDef TEETER_TOTTER = {
     .mass = 1000,
     .bounciness = 1024,
     .friction = 16,
-    
+
     .field_0x0c = 0x0000,
     .field_0x0e = 0x0000,
     .field_0x10 = 0x00f0,
@@ -1265,7 +1264,7 @@ struct PartDef BALLOON = {
     .mass = 1,
     .bounciness = 64,
     .friction = 32,
-    
+
     .field_0x0c = 0x0000,
     .field_0x0e = 0x0000,
     .field_0x10 = 0x00f0,
