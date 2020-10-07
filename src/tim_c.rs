@@ -1,6 +1,8 @@
 // Rust/C interop layer
 
 use std::os::raw::{c_int, c_char};
+use crate::part::PartType;
+use crate::atmosphere;
 
 /**** Import C declarations to Rust ****/
 extern {
@@ -13,6 +15,9 @@ extern {
     pub fn insert_part_into_static_parts(part: *mut Part);
     pub fn insert_part_into_moving_parts(part: *mut Part);
     pub fn insert_part_into_parts_bin(part: *mut Part);
+    pub fn part_resize(part: *mut Part);
+    pub fn part_flip(part: *mut Part, flag: c_int);
+    pub fn part_density(part_type: c_int) -> u16;
 
     pub static mut GRAVITY: u16;
     pub static mut AIR_PRESSURE: u16;
@@ -278,4 +283,28 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
     }
 
     return 0;
+}
+
+/// Partial from TIMWIN: 1090:0000
+/// Was pre-calculated in TIM each time the air pressure or gravity changed. Here we recalculate it each time.
+/// We can possibly memoize this call in the future if performance calls for it.
+#[no_mangle]
+pub fn part_acceleration(part_type: c_int) -> i16 {
+    match PartType::from_u16(part_type as u16) {
+        PartType::GunBullet => 0,
+        PartType::Eightball => 0,
+        _ => atmosphere::calculate_acceleration(unsafe { GRAVITY }, unsafe { AIR_PRESSURE }, unsafe { part_density(part_type) })
+    }
+}
+
+/// Partial from TIMWIN: 1090:0000
+/// Was pre-calculated in TIM each time the air pressure or gravity changed. Here we recalculate it each time.
+/// We can possibly memoize this call in the future if performance calls for it.
+#[no_mangle]
+pub fn part_terminal_velocity(part_type: c_int) -> i16 {
+    match PartType::from_u16(part_type as u16) {
+        PartType::GunBullet => 0x3000,
+        PartType::CannonBall => 0x3000,
+        _ => atmosphere::calculate_terminal_velocity(unsafe { AIR_PRESSURE })
+    }
 }
