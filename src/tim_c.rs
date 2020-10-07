@@ -7,6 +7,7 @@ use crate::atmosphere;
 /**** Import C declarations to Rust ****/
 extern {
     pub fn debug_part_size() -> usize;
+    pub fn initialize_llamas();
     pub fn part_new(part_type: c_int) -> *mut Part;
     pub fn part_free(part: *mut Part);
     pub fn restore_parts_state_from_design();

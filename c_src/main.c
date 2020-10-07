@@ -90,6 +90,17 @@ void insert_part_into_parts_bin(struct Part *part) {
     return insert_part_into_root(part, &PARTS_BIN_ROOT);
 }
 
+/* Partial from TIMWIN: 10b0:02a5 */
+void initialize_llamas() {
+    LLAMA_1 = 0;
+    LLAMA_2 = 0;
+    for (int i = 0; i < 20; i++) {
+        struct Llama *o = malloc(sizeof(struct Llama));
+        o->next = LLAMA_1;
+        LLAMA_1 = o;
+    }
+}
+
 /* TIMWIN: 10a8:0290
    Note: double checked for accuracy */
 void four_points_adjust_p1_by_one(struct Line *points) {

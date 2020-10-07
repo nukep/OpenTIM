@@ -61,9 +61,11 @@ struct PartDef {
 
 void part_calculate_border_normals(struct Part *);
 void part_set_size_and_pos_render(struct Part *part);
+void stub_10a8_280a(struct Part *part, int c);
 void stub_10a8_2b6d(struct Part *part, int c);
 void stub_10a8_21cb(struct Part *part, u8 c);
 int stub_1050_02db(struct Part *part);
+int stub_10a8_4509(struct Part *part_a, struct Part *part_b);
 bool calculate_line_intersection(const struct Line *a, const struct Line *b, struct ShortVec *out);
 struct Part* part_new(enum PartType type);
 void insert_part_into_static_parts(struct Part *part);
@@ -594,7 +596,7 @@ void part_find_interactions(struct Part *part, enum GetPartsFlags choice, s16 hi
     s16 x = part->pos.x;
     s16 y = part->pos.y;
 
-    for (struct Part *curpart = get_first_part(choice); curpart != 0; curpart = next_part_or_fallback(curpart, choice)) {
+    for (struct Part *curpart = get_first_part(choice); curpart != 0; curpart = next_part_or_fallback(curpart, choice & CHOOSE_MOVING_PART)) {
         if (curpart == part) continue;
         if (ANY_FLAGS(curpart->flags2, 0x2000)) continue;
 
@@ -895,6 +897,56 @@ void stub_1090_1289(struct Part *teeter_part, enum GetPartsFlags choice, const s
     }
 }
 
+/* TIMWIN: 10d0:0000 */
+int bounce_teeter_totter(struct Part *part) {
+    if (ANY_FLAGS(part->bounce_part->flags2, 0x0200)) {
+        return 1;
+    }
+
+    u16 idx = part->bounce_border_index;
+    s16 new_state2 = 1;
+
+    if (idx == 0) {
+        s16 ivar3 = part->pos.x + part->size.x/2 - part->bounce_part->pos.x;
+        if (ivar3 < 44) {
+            if (ivar3 >= 37) {
+                return 1;
+            }
+            if (part->bounce_part->state1 == 0) {
+                return 1;
+            }
+            new_state2 = -1;
+        } else {
+            if (part->bounce_part->state1 == 2) {
+                return 1;
+            }
+            new_state2 = 1;
+        }
+    } else if (idx == 2) {
+        if (part->bounce_part->state1 == 0) {
+            return 1;
+        }
+        new_state2 = -1;
+    } else if (idx == 6) {
+        if (part->bounce_part->state1 == 2) {
+            return 1;
+        }
+        new_state2 = 1;
+    } else {
+        return 1;
+    }
+
+    if (stub_10a8_4509(part, part->bounce_part) == 0) {
+        return 1;
+    }
+
+    part->bounce_part->state2 = new_state2;
+    part->bounce_part->force = part->force;
+    part->bounce_part = 0;
+
+    return 0;
+}
+
 /* TIMWIN: 10d0:0240 */
 void run_teeter_totter(struct Part *part) {
     if (part->state2 != 0) {
@@ -993,6 +1045,94 @@ void run_teeter_totter(struct Part *part) {
     }
 }
 
+/* TIMWIN: 10d0:01db */
+void flip_teeter_totter(struct Part *part, int flags) {
+    if (part->state1 == 0) {
+        part->state1 = 2;
+    } else {
+        part->state1 = 0;
+    }
+
+    part->original_state1 = part->state1;
+    reset_teeter_totter(part);
+    part_set_size_and_pos_render(part);
+    stub_10a8_280a(part, 3);
+    stub_10a8_2b6d(part, 3);
+    stub_10a8_21cb(part, 2);
+}
+
+/* TIMWIN: 10d0:04fe */
+int rope_teeter_totter(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force) {
+    struct RopeData *rd = p2->rope_data[rope_slot];
+
+    if (((flags & 7) != 1) && rd->rope_unknown != 0) {
+        if ((flags & 0x8000) == 0) {
+            rd->rope_unknown -= 1;
+        }
+        return 0;
+    }
+
+    s16 old_p2_state2 = p2->state2;
+
+    int a = 0;
+    s16 b = 0;
+
+    if ((flags & 7) == 4) {
+        if (rope_slot == 0) {
+            if (p2->state1 == 0) {
+                a = 1;
+            } else {
+                b = -1;
+            }
+        } else {
+            if (p2->state1 == 2) {
+                a = 1;
+            } else {
+                b = 1;
+            }
+        }
+    } else if ((flags & 7) == 2) {
+        if (rope_slot == 0) {
+            if (p2->state1 == 2) {
+                a = 1;
+            } else {
+                b = 1;
+            }
+        } else {
+            if (p2->state1 == 0) {
+                a = 1;
+            } else {
+                b = -1;
+            }
+        }
+    }
+
+    if (a == 0 && (flags & 7) != 1) {
+        p2->state2 = b;
+        a = teeter_totter_helper_2(p1, p2, flags & 0x8000, p1_mass, p1_force);
+
+        if ((flags & 0x8000) == 0) {
+            if (a == 0) {
+                p2->flags2 |= 0x0400;
+            }
+        } else {
+            p2->state2 = old_p2_state2;
+        }
+    }
+
+    if (a != 0) {
+        p2->flags2 |= 0x0200;
+    }
+    if ((p2->flags2 & 0x0200) != 0) {
+        return 1;
+    }
+    if ((flags & (0x8000 | 0x0008 | 0x0004 | 0x0002 | 0x0001)) == 1) {
+        rd->rope_unknown += 1;
+    }
+
+    return 0;
+}
+
 /* TIMWIN: 1048:067e */
 void reset_balloon(struct Part *part) {
     /* TIMWIN: 1108:0b18 */
@@ -1079,6 +1219,41 @@ int rope_balloon(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16
     }
 }
 
+
+struct PartDef TEETER_TOTTER = {
+    .flags1 = 0x4800,
+    .flags3 = 0x0000,
+    .size_something2 = { 80, 32 },
+    .size = { 80, 32 },
+    .create_func = create_teeter_totter,
+
+    .density = 1888,
+    .mass = 1000,
+    .bounciness = 1024,
+    .friction = 16,
+    
+    .field_0x0c = 0x0000,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x00f0,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+     // TIMWIN: 1108:2059. 3 states.
+    .render_pos_offsets = (struct SByteVec[3]){ {0, 0}, {0, 12}, {0, 0} },
+    .field_0x1a = 0,
+
+    .goobers = { 4, 0xff },
+    .borders = 8,
+    .part_order = 6,
+
+    .bounce_func = bounce_teeter_totter,
+    .run_func = run_teeter_totter,
+    .reset_func = reset_teeter_totter,
+    .flip_func = flip_teeter_totter,
+    .resize_func = default_resize,
+    .rope_func = rope_teeter_totter,
+};
+
 struct PartDef BALLOON = {
     .flags1 = 0x0800,
     .flags3 = 0x0008,
@@ -1118,6 +1293,7 @@ struct PartDef *part_def(enum PartType type) {
         case P_BOWLING_BALL: return &BOWLING_BALL;
         case P_BRICK_WALL: return &BRICK_WALL;
         case P_INCLINE: return &INCLINE;
+        case P_TEETER_TOTTER: return &TEETER_TOTTER;
         case P_BALLOON: return &BALLOON;
         default: return 0;
     }

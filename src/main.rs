@@ -14,8 +14,11 @@ mod tim_c;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bowling_ball_raw = unsafe { tim_c::part_new(0) };
+    let bowling_ball2_raw = unsafe { tim_c::part_new(0) };
     let balloon_raw = unsafe { tim_c::part_new(4) };
     let incline_raw = unsafe { tim_c::part_new(2) };
+    let incline2_raw = unsafe { tim_c::part_new(2) };
+    let teeter_totter_raw = unsafe { tim_c::part_new(3) };
     let brick_wall_raw = unsafe { tim_c::part_new(1) };
     let brick_wall2_raw = unsafe { tim_c::part_new(1) };
 
@@ -52,14 +55,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         incline.original_pos_x = 16*12;
         incline.original_pos_y = 16*8;
         incline.size_something2.x = 48;
+
+        let teeter_totter: &mut tim_c::Part = unsafe { teeter_totter_raw.as_mut().unwrap() };
+        teeter_totter.flags1 |= 0x2000;
+        teeter_totter.original_pos_x = 16*14;
+        teeter_totter.original_pos_y = 16*23;
+
+        let bowling_ball2: &mut tim_c::Part = unsafe { bowling_ball2_raw.as_mut().unwrap() };
+        bowling_ball2.original_pos_x = 220;
+        bowling_ball2.original_pos_y = 360;
+
+        let incline2: &mut tim_c::Part = unsafe { incline2_raw.as_mut().unwrap() };
+        incline2.flags1 |= 0x2000;
+        incline2.original_pos_x = 16*11;
+        incline2.original_pos_y = 16*23;
+        // incline2.size_something2.x = 48;
     }
 
     unsafe {
+        tim_c::initialize_llamas();
+
         tim_c::insert_part_into_moving_parts(bowling_ball_raw);
+        tim_c::insert_part_into_moving_parts(bowling_ball2_raw);
         tim_c::insert_part_into_moving_parts(balloon_raw);
         tim_c::insert_part_into_static_parts(brick_wall_raw);
         tim_c::insert_part_into_static_parts(brick_wall2_raw);
         tim_c::insert_part_into_static_parts(incline_raw);
+        tim_c::insert_part_into_static_parts(incline2_raw);
+        tim_c::insert_part_into_static_parts(teeter_totter_raw);
         tim_c::part_resize(incline_raw);
         tim_c::restore_parts_state_from_design();
         // tim_c::part_flip(incline_raw, 0);
@@ -76,7 +99,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // println!("{}", unsafe { tim_c::debug_part_size() });
     // println!("{}", std::mem::size_of::<tim_c::BeltData>());
-    nannou::start();
+    if true {
+        nannou::start();
+    } else {
+        unsafe {
+            for _ in 0..60 {
+                tim_c::advance_parts();
+                tim_c::all_parts_set_prev_vars();
+            }
+        }
+    }
+
     Ok(())
 }
 
