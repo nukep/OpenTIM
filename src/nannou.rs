@@ -169,7 +169,7 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
             model.mouse_pos = None;
         },
         KeyPressed(Key::Space) => {
-            model.clicked = true;
+            model.clicked = !model.clicked;
         },
         _ => ()
     }
@@ -179,27 +179,36 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     let mut render_items = vec![];
 
     // TIM logo
-    render_items.push(RenderItem::Image { id: ImageId::Part(56, 0), x: 0, y: 0 });
-    render_items.push(RenderItem::Image { id: ImageId::Part(56, 1), x: 26, y: 0 });
-    render_items.push(RenderItem::Image { id: ImageId::Part(56, 2), x: 26+96, y: 0 });
-    render_items.push(RenderItem::Image { id: ImageId::Part(56, 3), x: 26+96+166, y: 0 });
-    render_items.push(RenderItem::Image { id: ImageId::Part(56, 4), x: 0, y: 67 });
-    render_items.push(RenderItem::Image { id: ImageId::Part(56, 5), x: 127, y: 67 });
-    render_items.push(RenderItem::Image { id: ImageId::Part(56, 6), x: 127+154, y: 67 });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(56, 0), x: 0, y: 0 });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(56, 1), x: 26, y: 0 });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(56, 2), x: 26+96, y: 0 });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(56, 3), x: 26+96+166, y: 0 });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(56, 4), x: 0, y: 67 });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(56, 5), x: 127, y: 67 });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(56, 6), x: 127+154, y: 67 });
 
     let balloon_y = model.balloon_y >> 9;
 
-    render_items.push(RenderItem::Image { id: ImageId::Part(4, 0), x: 100, y: balloon_y });
-    render_items.push(RenderItem::Image { id: ImageId::Part(23, 0), x: 200-8, y: 400-8 });
-    render_items.push(RenderItem::Rope { x1: 100+16, y1: balloon_y + 48, x2: 200, y2: 400, sag: 100 });
-    render_items.push(RenderItem::Text { x: 0, y: 0, text: "Hello World!".into() });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(4, 0), x: 100, y: balloon_y });
+    // render_items.push(RenderItem::Image { id: ImageId::Part(23, 0), x: 200-8, y: 400-8 });
+    // render_items.push(RenderItem::Rope { x1: 100+16, y1: balloon_y + 48, x2: 200, y2: 400, sag: 100 });
+    // render_items.push(RenderItem::Text { x: 0, y: 0, text: "Hello World!".into() });
+
     
+    {
+        let iter = unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) };
+        for part in iter {
+            let part_x = part.pos_render.x as i32;
+            let part_y = part.pos_render.y as i32;
+            render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, part.state1 as usize), x: part_x, y: part_y });
+        }
+    }
 
     if let Some((x, y)) = model.mouse_pos {
         render_items.push(RenderItem::Image { id: ImageId::Mouse(MouseIcon::Default), x: x, y: y });
     }
 
-    model.render_items = vec![]; //render_items;
+    model.render_items = render_items;
 
     model.ticks = model.ticks.wrapping_add(1);
     model.balloon_y += model.balloon_vel_y;
@@ -247,6 +256,47 @@ fn view(app: &App, model: &Model, frame: Frame) {
         (x - (SCREEN_WIDTH as f32 / 2.0), - (y - (SCREEN_HEIGHT as f32 / 2.0)))
     };
 
+    {
+        let iter = unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) };
+        for part in iter {
+            let part_x = part.pos_x_hi_precision as f32 / 512.0;
+            let part_y = part.pos_y_hi_precision as f32 / 512.0;
+
+            // Draw shape border
+
+            let border_iter = part.border_points().iter().map(|p| {
+                (part_x + p.x as f32, part_y + p.y as f32)
+            }).map(|(x, y)|
+                transform(x, y)
+            ).map(|(x, y)|
+                pt2(x, y)
+            );
+            draw.polygon().rgba8(0,0,0,64).points(border_iter);
+
+            // Draw normals
+
+            // Big crazy iterator that yields a pair of the border point and the next one. (point_n, point_n+1).
+            let niter = part.border_points().iter().zip(part.border_points().iter().cycle().skip(1)).take(part.border_points().iter().count());
+
+            for (a, b) in niter {
+                let normal = a.normal_angle as f32 / 65536.0;
+                let ox = part_x + (a.x as f32 + b.x as f32) / 2.0;
+                let oy = part_y + (a.y as f32 + b.y as f32) / 2.0;
+
+                let s = f32::sin(normal*3.141592*2.0) * 3.0;
+                let c = f32::cos(normal*3.141592*2.0) * 3.0;
+
+                let (ox, oy) = transform(ox, oy);
+
+                draw.line().color(BLACK).points(pt2(ox, oy), pt2(ox-s, oy+c));
+
+                // draw.ellipse().color(BLACK).width(2.0).height(2.0).x_y(ox, oy);
+            }
+
+            // draw.rect
+        }
+    }
+
     for item in model.render_items.iter() {
         match item {
             RenderItem::Image { id, x, y } => {
@@ -275,47 +325,6 @@ fn view(app: &App, model: &Model, frame: Frame) {
                 let (x, y) = transform(*x as f32, *y as f32);
                 draw.text(text).x_y(x, y).left_justify().align_text_top().color(BLACK);
             },
-        }
-    }
-
-    {
-        let iter = unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) };
-        for part in iter {
-            let part_x = part.pos_x_hi_precision as f32 / 512.0;
-            let part_y = part.pos_y_hi_precision as f32 / 512.0;
-
-            // Draw shape border
-
-            let border_iter = part.border_points().iter().map(|p| {
-                (part_x + p.x as f32, part_y + p.y as f32)
-            }).map(|(x, y)|
-                transform(x, y)
-            ).map(|(x, y)|
-                pt2(x, y)
-            );
-            draw.polygon().rgba8(0,0,0,192).points(border_iter);
-
-            // Draw normals
-
-            // Big crazy iterator that yields a pair of the border point and the next one. (point_n, point_n+1).
-            let niter = part.border_points().iter().zip(part.border_points().iter().cycle().skip(1)).take(part.border_points().iter().count());
-
-            for (a, b) in niter {
-                let normal = a.normal_angle as f32 / 65536.0;
-                let ox = part_x + (a.x as f32 + b.x as f32) / 2.0;
-                let oy = part_y + (a.y as f32 + b.y as f32) / 2.0;
-
-                let s = f32::sin(normal*3.141592*2.0) * 3.0;
-                let c = f32::cos(normal*3.141592*2.0) * 3.0;
-
-                let (ox, oy) = transform(ox, oy);
-
-                draw.line().color(BLACK).points(pt2(ox, oy), pt2(ox-s, oy+c));
-
-                // draw.ellipse().color(BLACK).width(2.0).height(2.0).x_y(ox, oy);
-            }
-
-            // draw.rect
         }
     }
 
