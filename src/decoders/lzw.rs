@@ -3,7 +3,7 @@
 //
 // This LZW decompression algorithm is subtlely different from other Sierra games.
 // 1) The length 2+ dictionary starts at 0x101 instead of 0x102.
-// 2) The reset command aligns the read stream to a 16-byte boundary.
+// 2) The reset command aligns the read stream to a 20-byte boundary.
 
 use thiserror::Error;
 
