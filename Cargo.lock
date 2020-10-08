@@ -1475,6 +1475,7 @@ name = "opentim"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "byteorder",
  "cc",
  "nannou",
  "num_enum 0.5.1",

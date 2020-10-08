@@ -193,14 +193,37 @@ void part_free(struct Part *part) {
     free(part);
 }
 
+struct Part* part_alloc() {
+    struct Part *part = malloc(sizeof(struct Part));
+    if (!part) return 0;
+
+    memset(part, 0, sizeof(struct Part));
+    return part;
+}
+
+struct BeltData * belt_data_alloc() {
+    struct BeltData *belt = malloc(sizeof(struct BeltData));
+    if (!belt) return 0;
+
+    memset(belt, 0, sizeof(struct BeltData));
+    return belt;
+}
+
+struct RopeData * rope_data_alloc() {
+    struct RopeData *rope = malloc(sizeof(struct RopeData));
+    if (!rope) return 0;
+
+    memset(rope, 0, sizeof(struct RopeData));
+    return rope;
+}
+
 /* TIMWIN: 1078:00f2 */
 struct Part* part_new(enum PartType type) {
-    struct Part *part = malloc(sizeof(struct Part));
+    struct Part *part = part_alloc();
     if (!part) {
         goto error;
     }
 
-    memset(part, 0, sizeof(struct Part));
     part->type = type;
     part->flags1 = part_data30_flags1(type);
     part->flags3 = part_data30_flags3(type);

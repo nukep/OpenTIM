@@ -9,7 +9,11 @@ extern {
     pub fn debug_part_size() -> usize;
     pub fn initialize_llamas();
     pub fn part_new(part_type: c_int) -> *mut Part;
+    pub fn part_alloc() -> *mut Part;
+    pub fn belt_data_alloc() -> *mut BeltData;
+    pub fn rope_data_alloc() -> *mut RopeData;
     pub fn part_free(part: *mut Part);
+    pub fn part_alloc_borders_and_reset(part: *mut Part) -> c_int;
     pub fn restore_parts_state_from_design();
     pub fn advance_parts();
     pub fn all_parts_set_prev_vars();
@@ -244,7 +248,6 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
     // In TIMWIN, this value comes from (pseudocode):
     // width  = data31[part_type].field_0x14[state].field_0x04 (16-bit signed)
     // height = data31[part_type].field_0x14[state].field_0x06 (16-bit signed)
-
 
     // some hard-coded part sizes until we implement loading them from the resource files
     let t = match PartType::from_u16(part_type as u16) {

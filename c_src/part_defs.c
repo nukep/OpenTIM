@@ -266,6 +266,20 @@ int default_rope(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16
 
 #define ALLOC_BORDERS(part) { if (part->num_borders == 0) { part->borders_data = 0; } else { part->borders_data = malloc(part->num_borders * 4); if (!part->borders_data) { return 1; } }  }
 
+int part_alloc_borders_and_reset(struct Part *part) {
+    // Used by level-loading
+    struct PartDef *def = part_def(part->type);
+    if (!def) {
+        TRACE_ERROR("part_alloc_borders_and_reset - def not found");
+        return 1;
+    }
+
+    part->num_borders = def->borders;
+    ALLOC_BORDERS(part);
+
+    part_reset(part);
+}
+
 static struct ByteVec BOWLING_BALL_BORDERS[] = {
     { 8, 0 }, { 23, 0 }, { 31, 8 }, { 31, 23 }, { 23, 31 }, { 8, 31 }, { 0, 23 }, { 0, 8 }
 };

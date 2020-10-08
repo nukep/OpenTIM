@@ -10,6 +10,7 @@ edition = "2018"
 thiserror = "1.0"
 anyhow = "1.0"
 num_enum = "0.5.1"
+byteorder = "1"
 # Using latest nannou until 0.15.0 comes out.
 # 0.14.1 has the bug: https://github.com/nannou-org/nannou/issues/611
 nannou = { git = "https://github.com/nannou-org/nannou", branch = "master" }

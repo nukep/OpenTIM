@@ -11,102 +11,115 @@ mod part;
 mod math;
 mod nannou;
 mod tim_c;
+mod level_file_format;
+mod level_load;
+
+use level_load::level_load;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let bowling_ball_raw = unsafe { tim_c::part_new(0) };
-    let bowling_ball2_raw = unsafe { tim_c::part_new(0) };
-    let balloon_raw = unsafe { tim_c::part_new(4) };
-    let incline_raw = unsafe { tim_c::part_new(2) };
-    let incline2_raw = unsafe { tim_c::part_new(2) };
-    let teeter_totter_raw = unsafe { tim_c::part_new(3) };
-    let brick_wall_raw = unsafe { tim_c::part_new(1) };
-    let brick_wall2_raw = unsafe { tim_c::part_new(1) };
-    let nail_raw = unsafe { tim_c::part_new(53) };
-
-
     {
-        let bowling_ball: &mut tim_c::Part = unsafe { bowling_ball_raw.as_mut().unwrap() };
-        bowling_ball.flags1 = 0x1000;
-        bowling_ball.flags2 = 0x0000;
-        bowling_ball.flags3 = 0x0008;
-        bowling_ball.original_pos_x = 270;
-        bowling_ball.original_pos_y = 150;
+        let args: Vec<String> = std::env::args().collect();
+        let level_filename = &args[2];
+        let buf: Vec<u8> = std::fs::read(level_filename)?;
 
-        let balloon: &mut tim_c::Part = unsafe { balloon_raw.as_mut().unwrap() };
-        balloon.original_pos_x = 200;
-        balloon.original_pos_y = 300;
+        let level = level_file_format::read(&buf, true)?;
 
-        let brick_wall: &mut tim_c::Part = unsafe { brick_wall_raw.as_mut().unwrap() };
-        brick_wall.original_pos_x = 176;
-        brick_wall.original_pos_y = 400;
-        brick_wall.size_something2.x = 16*8;
-        brick_wall.flags1 = 0x6040;
-        brick_wall.flags2 = 0x0180;     // was originally set
-        brick_wall.flags3 = 0x0000;     
+        unsafe {
+            tim_c::initialize_llamas();
+        }
 
-        let brick_wall2: &mut tim_c::Part = unsafe { brick_wall2_raw.as_mut().unwrap() };
-        brick_wall2.original_pos_x = 176 + 16*1;
-        brick_wall2.original_pos_y = 16*5;
-        brick_wall2.size_something2.x = 16*8;
-        brick_wall2.flags1 = 0x6040;
-        brick_wall2.flags2 = 0x0180;     // was originally set
-        brick_wall2.flags3 = 0x0000;
+        println!("Loading level...");
+        level_load(&level);
 
-        let incline: &mut tim_c::Part = unsafe { incline_raw.as_mut().unwrap() };
-        incline.flags1 |= 0x2000;
-        incline.original_pos_x = 16*12;
-        incline.original_pos_y = 16*8;
-        incline.size_something2.x = 48;
-
-        let teeter_totter: &mut tim_c::Part = unsafe { teeter_totter_raw.as_mut().unwrap() };
-        teeter_totter.flags1 |= 0x2000;
-        teeter_totter.original_pos_x = 16*14;
-        teeter_totter.original_pos_y = 16*23;
-
-        let bowling_ball2: &mut tim_c::Part = unsafe { bowling_ball2_raw.as_mut().unwrap() };
-        bowling_ball2.original_pos_x = 220;
-        bowling_ball2.original_pos_y = 360;
-
-        let incline2: &mut tim_c::Part = unsafe { incline2_raw.as_mut().unwrap() };
-        incline2.flags1 |= 0x2000;
-        incline2.original_pos_x = 16*11;
-        incline2.original_pos_y = 16*23;
-        // incline2.size_something2.x = 48;
-
-        let nail: &mut tim_c::Part = unsafe { nail_raw.as_mut().unwrap() };
-        nail.flags1 |= 0x2000;
-        nail.original_pos_x = 16*7;
-        nail.original_pos_y = 16*5;
+        unsafe {
+            tim_c::restore_parts_state_from_design();
+        }
+        println!("Done loading!");
     }
 
-    unsafe {
-        tim_c::initialize_llamas();
 
-        tim_c::insert_part_into_moving_parts(bowling_ball_raw);
-        tim_c::insert_part_into_moving_parts(bowling_ball2_raw);
-        tim_c::insert_part_into_moving_parts(balloon_raw);
-        tim_c::insert_part_into_static_parts(brick_wall_raw);
-        tim_c::insert_part_into_static_parts(brick_wall2_raw);
-        tim_c::insert_part_into_static_parts(incline_raw);
-        tim_c::insert_part_into_static_parts(incline2_raw);
-        tim_c::insert_part_into_static_parts(teeter_totter_raw);
-        tim_c::insert_part_into_static_parts(nail_raw);
-        tim_c::part_resize(incline_raw);
-        tim_c::restore_parts_state_from_design();
-        // tim_c::part_flip(incline_raw, 0);
-        // for _ in 0..60 {
-        //     tim_c::advance_parts();
-        //     tim_c::all_parts_set_prev_vars();
-        // }
-        
-        // let bowling_ball: &mut tim_c::Part = unsafe { bowling_ball_raw.as_mut().unwrap() };
-        // println!("{:?}", bowling_ball.border_points());
-    }
-    // println!(b)
-    // tim_c::print_parts();
+    // let bowling_ball_raw = unsafe { tim_c::part_new(0) };
+    // let bowling_ball2_raw = unsafe { tim_c::part_new(0) };
+    // let balloon_raw = unsafe { tim_c::part_new(4) };
+    // let incline_raw = unsafe { tim_c::part_new(2) };
+    // let incline2_raw = unsafe { tim_c::part_new(2) };
+    // let teeter_totter_raw = unsafe { tim_c::part_new(3) };
+    // let brick_wall_raw = unsafe { tim_c::part_new(1) };
+    // let brick_wall2_raw = unsafe { tim_c::part_new(1) };
+    // let nail_raw = unsafe { tim_c::part_new(53) };
 
-    // println!("{}", unsafe { tim_c::debug_part_size() });
-    // println!("{}", std::mem::size_of::<tim_c::BeltData>());
+
+    // {
+    //     let bowling_ball: &mut tim_c::Part = unsafe { bowling_ball_raw.as_mut().unwrap() };
+    //     bowling_ball.flags1 = 0x1000;
+    //     bowling_ball.flags2 = 0x0000;
+    //     bowling_ball.flags3 = 0x0008;
+    //     bowling_ball.original_pos_x = 270;
+    //     bowling_ball.original_pos_y = 150;
+
+    //     let balloon: &mut tim_c::Part = unsafe { balloon_raw.as_mut().unwrap() };
+    //     balloon.original_pos_x = 200;
+    //     balloon.original_pos_y = 300;
+
+    //     let brick_wall: &mut tim_c::Part = unsafe { brick_wall_raw.as_mut().unwrap() };
+    //     brick_wall.original_pos_x = 176;
+    //     brick_wall.original_pos_y = 400;
+    //     brick_wall.size_something2.x = 16*8;
+    //     brick_wall.flags1 = 0x6040;
+    //     brick_wall.flags2 = 0x0180;     // was originally set
+    //     brick_wall.flags3 = 0x0000;     
+
+    //     let brick_wall2: &mut tim_c::Part = unsafe { brick_wall2_raw.as_mut().unwrap() };
+    //     brick_wall2.original_pos_x = 176 + 16*1;
+    //     brick_wall2.original_pos_y = 16*5;
+    //     brick_wall2.size_something2.x = 16*8;
+    //     brick_wall2.flags1 = 0x6040;
+    //     brick_wall2.flags2 = 0x0180;     // was originally set
+    //     brick_wall2.flags3 = 0x0000;
+
+    //     let incline: &mut tim_c::Part = unsafe { incline_raw.as_mut().unwrap() };
+    //     incline.flags1 |= 0x2000;
+    //     incline.original_pos_x = 16*12;
+    //     incline.original_pos_y = 16*8;
+    //     incline.size_something2.x = 48;
+
+    //     let teeter_totter: &mut tim_c::Part = unsafe { teeter_totter_raw.as_mut().unwrap() };
+    //     teeter_totter.flags1 |= 0x2000;
+    //     teeter_totter.original_pos_x = 16*14;
+    //     teeter_totter.original_pos_y = 16*23;
+
+    //     let bowling_ball2: &mut tim_c::Part = unsafe { bowling_ball2_raw.as_mut().unwrap() };
+    //     bowling_ball2.original_pos_x = 220;
+    //     bowling_ball2.original_pos_y = 360;
+
+    //     let incline2: &mut tim_c::Part = unsafe { incline2_raw.as_mut().unwrap() };
+    //     incline2.flags1 |= 0x2000;
+    //     incline2.original_pos_x = 16*11;
+    //     incline2.original_pos_y = 16*23;
+    //     // incline2.size_something2.x = 48;
+
+    //     let nail: &mut tim_c::Part = unsafe { nail_raw.as_mut().unwrap() };
+    //     nail.flags1 |= 0x2000;
+    //     nail.original_pos_x = 16*7;
+    //     nail.original_pos_y = 16*5;
+    // }
+
+    // unsafe {
+    //     tim_c::initialize_llamas();
+
+    //     tim_c::insert_part_into_moving_parts(bowling_ball_raw);
+    //     tim_c::insert_part_into_moving_parts(bowling_ball2_raw);
+    //     tim_c::insert_part_into_moving_parts(balloon_raw);
+    //     tim_c::insert_part_into_static_parts(brick_wall_raw);
+    //     tim_c::insert_part_into_static_parts(brick_wall2_raw);
+    //     tim_c::insert_part_into_static_parts(incline_raw);
+    //     tim_c::insert_part_into_static_parts(incline2_raw);
+    //     tim_c::insert_part_into_static_parts(teeter_totter_raw);
+    //     tim_c::insert_part_into_static_parts(nail_raw);
+    //     tim_c::part_resize(incline_raw);
+    //     tim_c::restore_parts_state_from_design();
+    // }
+
     if true {
         nannou::start();
     } else {
