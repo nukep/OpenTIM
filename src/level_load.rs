@@ -64,7 +64,7 @@ pub fn level_load(level: &level_file_format::Level) {
 fn part_load<F>(p: &level_file_format::Part, part: &mut tim_c::Part, part_ptr_from_index: F)
     where F: Fn(u16) -> *mut tim_c::Part
 {
-    part.part_type = p.part_type.to_u16();
+    part.part_type = p.part_type;
     part.flags1 = p.flags1;
     part.original_flags2 = p.flags2;
     part.flags2 = p.flags2;
@@ -123,7 +123,9 @@ fn part_load<F>(p: &level_file_format::Part, part: &mut tim_c::Part, part_ptr_fr
             rope.part2 = part_ptr_from_index(rope_data.part2_index);
             rope.original_part2 = rope.part2;
     
+            rope.part1_rope_slot = rope_data.part1_rope_slot;
             rope.original_part1_rope_slot = rope_data.part1_rope_slot;
+            rope.part2_rope_slot = rope_data.part2_rope_slot;
             rope.original_part2_rope_slot = rope_data.part2_rope_slot;
     
             if let Some(part1) = unsafe { rope.part1.as_mut() } {

@@ -11,9 +11,6 @@ pub enum LevelReadError {
     #[error("Bad magic: `{0}`")]
     BadMagic(u16),
 
-    #[error("Unknown Part type: `{0}`")]
-    UnknownPartType(u16),
-
     #[error(transparent)]
     IoError(#[from] std::io::Error)
 }
@@ -41,7 +38,7 @@ pub struct Level {
 
 #[derive(Debug)]
 pub struct Part {
-    pub part_type: PartType,
+    pub part_type: u16,
     pub flags1: u16,
     pub flags2: u16,
     pub flags3: Option<u16>,
@@ -66,8 +63,14 @@ pub struct Part {
     pub plug_part_indexes: Option<(u16, u16)>,
 
     pub pulley_part_index: Option<u16>, // only set if type is a pulley
+
+    pub tunnel_part_index: Option<u16>, // only set if type is a tunnel (Toons only)
+
+    pub toons_unknown1: Option<u8>,
+    pub toons_programmable_field: Option<u16>,
 }
 
+// Only rope and pulley parts have ropedata.
 #[derive(Debug)]
 pub struct RopeData {
     pub part1_index: u16,
@@ -105,7 +108,17 @@ trait MyReadExt: std::io::Read {
 }
 impl<R: std::io::Read> MyReadExt for R {}
 
-pub fn read(buf: &[u8], freeform_mode: bool) -> Result<Level, LevelReadError> {
+// These games have _very_ similar level formats, with minor differences.
+// We can possibly add more games here if they're also similar.
+// If they all become too different and this approaches hackery, then consider breaking this up into separate implementations.
+pub enum GameOptions {
+    Tim {
+        freeform_mode: bool
+    },
+    Toons
+}
+
+pub fn read(buf: &[u8], game_opts: &GameOptions) -> Result<Level, LevelReadError> {
     let mut c = Cursor::new(buf);
 
     let magic = c.read_u16_le()?;
@@ -119,59 +132,92 @@ pub fn read(buf: &[u8], freeform_mode: bool) -> Result<Level, LevelReadError> {
     let puzzle_objective;
     let bonus;
 
-    if freeform_mode {
-        puzzle_title = None;
-        if version >= 0x104 {
+    match game_opts {
+        GameOptions::Tim { freeform_mode: true } => {
+            puzzle_title = None;
+            if version >= 0x104 {
+                puzzle_objective = Some(c.read_str()?);
+            } else {
+                puzzle_objective = None;
+            }
+            bonus = None;
+        },
+        GameOptions::Tim { freeform_mode: false } => {
+            puzzle_title = Some(c.read_str()?);
             puzzle_objective = Some(c.read_str()?);
-        } else {
-            puzzle_objective = None;
+            bonus = Some((c.read_u16_le()?, c.read_u16_le()?));
+        },
+        GameOptions::Toons => {
+            puzzle_title = Some(c.read_str()?);
+            puzzle_objective = Some(c.read_str()?);
+            bonus = None;
         }
-        bonus = None;
-    } else {
-        puzzle_title = Some(c.read_str()?);
-        puzzle_objective = Some(c.read_str()?);
-        bonus = Some((c.read_u16_le()?, c.read_u16_le()?));
     }
 
     let air_pressure = c.read_u16_le()?;
     let gravity = c.read_u16_le()?;
 
-    let unknown = if !freeform_mode {
-        Some((c.read_u16_le()?, c.read_u16_le()?))
-    } else {
-        None
-    };
+    let unknown;
+    match game_opts {
+        GameOptions::Tim { freeform_mode: true } => {
+            unknown = None;
+        },
+        GameOptions::Tim { freeform_mode: false } => {
+            unknown = Some((c.read_u16_le()?, c.read_u16_le()?));
+        },
+        GameOptions::Toons => {
+            unknown = Some((c.read_u16_le()?, c.read_u16_le()?));
+        }
+    }
 
     let music_track = c.read_u16_le()?;
     let num_static_parts = c.read_u16_le()?;
     let num_moving_parts = c.read_u16_le()?;
-    let num_bin_parts = c.read_u16_le()?;
+    let num_bin_parts;
+    
+    match game_opts {
+        GameOptions::Tim { .. } => {
+            num_bin_parts = c.read_u16_le()?;
+        },
+        GameOptions::Toons => {
+            num_bin_parts = 0;
+        }
+    }    
 
     let mut static_parts = Vec::with_capacity(num_static_parts as usize);
     for _ in 0..num_static_parts {
-        static_parts.push(read_part(&mut c, version)?);
+        static_parts.push(read_part(&mut c, version, game_opts)?);
     }
 
     let mut moving_parts = Vec::with_capacity(num_moving_parts as usize);
     for _ in 0..num_moving_parts {
-        moving_parts.push(read_part(&mut c, version)?);
+        moving_parts.push(read_part(&mut c, version, game_opts)?);
     }
 
-    let explicit_parts_bin = if version >= 0x105 {
-        c.read_u16_le()? != 0
-    } else {
-        false
-    };
+    let bin_parts;
+    
+    match game_opts {
+        GameOptions::Tim { freeform_mode } => {
+            let explicit_parts_bin = if version >= 0x105 {
+                c.read_u16_le()? != 0
+            } else {
+                false
+            };
 
-    let bin_parts = if !freeform_mode || explicit_parts_bin {
-        let mut bin_parts_v = Vec::with_capacity(num_bin_parts as usize);
-        for _ in 0..num_bin_parts {
-            bin_parts_v.push(read_part(&mut c, version)?);
+            bin_parts = if !freeform_mode || explicit_parts_bin {
+                let mut bin_parts_v = Vec::with_capacity(num_bin_parts as usize);
+                for _ in 0..num_bin_parts {
+                    bin_parts_v.push(read_part(&mut c, version, game_opts)?);
+                }
+                Some(bin_parts_v)
+            } else {
+                None
+            };
+        },
+        GameOptions::Toons => {
+            bin_parts = None;
         }
-        Some(bin_parts_v)
-    } else {
-        None
-    };
+    }
 
     Ok(Level {
         version,
@@ -188,9 +234,8 @@ pub fn read(buf: &[u8], freeform_mode: bool) -> Result<Level, LevelReadError> {
     })
 }
 
-fn read_part<T: std::io::Read>(mut c: T, version: u16) -> Result<Part, LevelReadError> {
-    let part_type_num = c.read_u16_le()?;
-    let part_type = PartType::try_from_u16(part_type_num).ok_or(LevelReadError::UnknownPartType(part_type_num))?;
+fn read_part<T: std::io::Read>(mut c: T, version: u16, game_opts: &GameOptions) -> Result<Part, LevelReadError> {
+    let part_type = c.read_u16_le()?;
 
     let flags1 = c.read_u16_le()?;
     let flags2 = c.read_u16_le()?;
@@ -252,18 +297,56 @@ fn read_part<T: std::io::Read>(mut c: T, version: u16) -> Result<Part, LevelRead
         None
     };
 
-    let pulley_part_index = if part_type == PartType::Pulley {
-        Some(c.read_u16_le()?)
-    } else {
-        None
-    };
+    let pulley_part_index;
+    let tunnel_part_index;
+    let toons_unknown1;
+    let toons_programmable_field;
+
+    match game_opts {
+        GameOptions::Tim { .. } => {
+            pulley_part_index = if part_type == 7 {
+                // 7 = pulley
+                Some(c.read_u16_le()?)
+            } else {
+                None
+            };
+
+            // TIM doesn't have tunnels
+            tunnel_part_index = None;
+            toons_unknown1 = None;
+            toons_programmable_field = None;
     
-    // Discard extra bytes
-    if version < 0x102 {
-        let discard_rep = c.read_u16_le()?;
-        for _ in 0..discard_rep {
-            c.read_u8()?;
-            c.read_u8()?;
+            // Discard extra bytes
+            if version < 0x102 {
+                let discard_rep = c.read_u16_le()?;
+                for _ in 0..discard_rep {
+                    c.read_u8()?;
+                    c.read_u8()?;
+                }
+            }
+        },
+        GameOptions::Toons => {
+            pulley_part_index = if part_type == 17 {
+                // 17 = pulley
+                Some(c.read_u16_le()?)
+            } else {
+                None
+            };
+
+            tunnel_part_index = if part_type == 46 {
+                // 46 = tunnel
+                Some(c.read_u16_le()?)
+            } else {
+                None
+            };
+
+            if version > 0x105 {
+                toons_unknown1 = Some(c.read_u8()?);
+            } else {
+                toons_unknown1 = None;
+            }
+
+            toons_programmable_field = Some(c.read_u16_le()?);
         }
     }
 
@@ -291,5 +374,9 @@ fn read_part<T: std::io::Read>(mut c: T, version: u16) -> Result<Part, LevelRead
 
         plug_part_indexes,
         pulley_part_index,
+
+        tunnel_part_index,
+        toons_unknown1,
+        toons_programmable_field
     })
 }
