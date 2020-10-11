@@ -56,7 +56,7 @@ s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, en
 }
 
 /* TIMWIN: 10a8:3b05 */
-s16 calculate_rope_sag(struct Part *part, struct RopeData *rope_data, enum RopeTime time) {
+s16 calculate_rope_sag(const struct Part *part, const struct RopeData *rope_data, enum RopeTime time) {
     struct Part *nextpart;
     if (part->type == P_PULLEY) {
         nextpart = part->links_to[0];

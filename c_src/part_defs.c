@@ -59,6 +59,8 @@ struct PartDef {
     int  (*rope_func)  (struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force);
 };
 
+struct BeltData* belt_data_alloc();
+struct RopeData* rope_data_alloc();
 void part_calculate_border_normals(struct Part *);
 void part_set_size_and_pos_render(struct Part *part);
 void stub_10a8_280a(struct Part *part, int c);
@@ -781,6 +783,10 @@ void stub_1090_1289(struct Part *teeter_part, enum GetPartsFlags choice, const s
     for (struct Part *curpart = get_first_part(choice); curpart != 0; curpart = next_part_or_fallback(curpart, choice & CHOOSE_MOVING_PART)) {
         int border_idx = 1;
         struct BorderPoint *border_point = curpart->borders_data;
+
+        // VANILLAFIX: avoid null pointer dereference on part without borders (such as P_ROPE_SEVERED_END)
+        if (!border_point) continue;
+
         s16 cx1 = curpart->pos.x + border_point[0].x;
         s16 cy1 = curpart->pos.y + border_point[0].y;
         s16 cx2 = curpart->pos.x + border_point[1].x;
@@ -1089,6 +1095,8 @@ void run_balloon(struct Part *part) {
     }
 
     if (part->state2 == 1 && part->rope_data[0]) {
+        // popped ballon with a rope attached to it
+
         struct Part *severed_part = part_new(P_ROPE_SEVERED_END);
         insert_part_into_moving_parts(severed_part);
         severed_part->flags1 |= 0x0010;
@@ -1139,6 +1147,34 @@ int rope_balloon(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16
             return 0;
         }
     }
+}
+
+/* TIMWIN: 1078:0480 */
+int create_pulley(struct Part *part) {
+    part->flags2 |= 0x0004;
+    part->rope_loc[0].x = 0;
+    part->rope_loc[0].y = 8;
+    part->rope_loc[1].x = 15;
+    part->rope_loc[1].y = 8;
+
+    struct RopeData *rope = rope_data_alloc();
+    part->rope_data[0] = rope;
+    if (!rope) {
+        return 1;
+    }
+    rope->rope_or_pulley_part = part;
+    return 0;
+}
+
+/* TIMWIN: 1078:0554 */
+int create_rope(struct Part *part) {
+    struct RopeData *rope = rope_data_alloc();
+    part->rope_data[0] = rope;
+    if (!rope) {
+        return 1;
+    }
+    rope->rope_or_pulley_part = part;
+    return 0;
 }
 
 /* TIMWIN: 1088:178c */
@@ -1335,6 +1371,113 @@ struct PartDef BALLOON = {
     .rope_func = rope_balloon,
 };
 
+struct PartDef PULLEY = {
+    .flags1 = 0x4800,
+    .flags3 = 0x0008,
+    .size_something2 = { 16, 16 },
+    .size = { 16, 16 },
+    .create_func = create_pulley,
+
+    .density = 3776,
+    .mass = 1000,
+    .bounciness = 0,
+    .friction = 0,
+
+    .field_0x0c = 0x0000,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x00f0,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
+
+    .goobers = { 2, 0xff },
+    .borders = 0,
+    .part_order = 17,
+
+    .bounce_func = default_bounce,
+    .run_func = default_run,
+    .reset_func = default_reset,
+    .flip_func = default_flip,
+    .resize_func = default_resize,
+    .rope_func = default_rope,
+};
+
+struct PartDef ROPE = {
+    .flags1 = 0x4800,
+    .flags3 = 0x0000,
+    .size_something2 = { 0, 0 },
+    .size = { 0, 0 },
+    .create_func = create_rope,
+
+    .density = 1600,
+    .mass = 1000,
+    .bounciness = 0,
+    .friction = 0,
+
+    .field_0x0c = 0x0000,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x00f0,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
+
+    .goobers = { 1, 0xff },
+    .borders = 0,
+    .part_order = 15,
+
+    .bounce_func = default_bounce,
+    .run_func = default_run,
+    .reset_func = default_reset,
+    .flip_func = default_flip,
+    .resize_func = default_resize,
+    .rope_func = default_rope,
+};
+
+/* TIMWIN: 1078:0f7b */
+int create_rope_severed_end(struct Part *part) {
+    part->flags2 |= 0x0004;
+    part->rope_loc[0].x = 0;
+    part->rope_loc[0].y = 0;
+    return 0;
+}
+
+struct PartDef ROPE_SEVERED_END = {
+    .flags1 = 0x0800,
+    .flags3 = 0x0008,
+    .size_something2 = { 0, 0 },
+    .size = { 0, 0 },
+    .create_func = create_rope_severed_end,
+
+    .density = 1600,
+    .mass = 1000,
+    .bounciness = 0,
+    .friction = 0,
+
+    .field_0x0c = 0x0000,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x00f0,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+    .render_pos_offsets = 0,
+    .field_0x1a = 0,
+
+    .goobers = { 4, 0xff },
+    .borders = 0,
+    .part_order = 50,
+
+    .bounce_func = default_bounce,
+    .run_func = default_run,
+    .reset_func = default_reset,
+    .flip_func = default_flip,
+    .resize_func = default_resize,
+    .rope_func = default_rope,
+};
+
 struct PartDef NAIL = {
     .flags1 = 0x4800,
     .flags3 = 0x0008,
@@ -1375,6 +1518,9 @@ struct PartDef *part_def(enum PartType type) {
         case P_INCLINE: return &INCLINE;
         case P_TEETER_TOTTER: return &TEETER_TOTTER;
         case P_BALLOON: return &BALLOON;
+        case P_PULLEY: return &PULLEY;
+        case P_ROPE: return &ROPE;
+        case P_ROPE_SEVERED_END: return &ROPE_SEVERED_END;
         case P_NAIL: return &NAIL;
         default: return 0;
     }

@@ -201,7 +201,7 @@ struct Part* part_alloc() {
     return part;
 }
 
-struct BeltData * belt_data_alloc() {
+struct BeltData* belt_data_alloc() {
     struct BeltData *belt = malloc(sizeof(struct BeltData));
     if (!belt) return 0;
 
@@ -209,7 +209,7 @@ struct BeltData * belt_data_alloc() {
     return belt;
 }
 
-struct RopeData * rope_data_alloc() {
+struct RopeData* rope_data_alloc() {
     struct RopeData *rope = malloc(sizeof(struct RopeData));
     if (!rope) return 0;
 
@@ -1219,13 +1219,14 @@ int stub_10a8_4509(struct Part *part_a, struct Part *part_b) {
 /* TIMWIN: 10a8:2bea */
 void stub_10a8_2bea(struct ShortVec *pos, struct ShortVec *size, u8 param3, u8 param4, s16 param5) {
     // doesn't update parts or datas. might be related to drawing. could maybe omit in the port?
-    // Commenting out the "unimplemented" part.
-    // unimplemented();
+    // do nothing, and let's see how that works out.
 }
 
 /* TIMWIN: 10a8:28f6 */
 void stub_10a8_28f6(struct Part *part, int _unused) {
-    unimplemented();
+    // Called when ropes are used.
+    // I think it's related to drawing. Could maybe omit in the port?
+    // do nothing, and let's see how that works out.
 }
 
 /* TIMWIN: 10a8:3c6d */
@@ -1850,7 +1851,7 @@ bool calculate_intersecting_rect(struct GDIRect *out, struct GDIRect *a, struct 
 }
 
 int stub_10a8_1329(struct BeltData *belt) {
-    unimplemented();
+    UNIMPLEMENTED;
     return 0;
 }
 
@@ -1907,7 +1908,8 @@ void stub_10a8_21cb(struct Part *part, u8 c) {
 void stub_10a8_28a5(struct Part *part, int _unused) {
     // doesn't do anything except call stub_10a8_2bea
     // stub_10a8_2bea doesn't update parts or datas. might be related to drawing. could maybe omit in the port?
-    unimplemented();
+    
+    UNIMPLEMENTED;
 }
 
 /* TIMWIN: 10a8:280a */
@@ -2081,7 +2083,7 @@ void stub_10a8_078e(struct RopeData *rope) {
 
 /* TIMWIN: 10a8:0880 */
 struct Part* stub_10a8_0880(struct Part *a, struct Part *b) {
-    unimplemented();
+    UNIMPLEMENTED;
     return 0;
 }
 
@@ -2243,6 +2245,12 @@ void advance_parts() {
         } else {
             stub_10a8_36f0(part);
         }
+    }
+
+    // OpenTIM - manually reset this field for all parts
+    // Rope positions won't update properly unless we do
+    EACH_STATIC_THEN_MOVING_PART(part) {
+        part->field_0x14 = 0;
     }
 }
 

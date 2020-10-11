@@ -198,6 +198,7 @@ s16 cosine_c(u16 angle);
 void rotate_point_c(s16 *x, s16 *y, u16 angle);
 /* */
 
+#define UNIMPLEMENTED output_c(__FUNCTION__); unimplemented();
 void unimplemented();
 void output_c(const char *);
 void output_part_c(struct Part *);

@@ -23,6 +23,7 @@ extern {
     pub fn part_resize(part: *mut Part);
     pub fn part_flip(part: *mut Part, flag: c_int);
     pub fn part_density(part_type: c_int) -> u16;
+    pub fn calculate_rope_sag(part: *const Part, rope_data: *const RopeData, time: c_int) -> i16;
 
     pub static mut GRAVITY: u16;
     pub static mut AIR_PRESSURE: u16;
@@ -91,21 +92,21 @@ pub fn print_parts() {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ByteVec {
     pub x: u8,
     pub y: u8,
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ShortVec {
     pub x: i16,
     pub y: i16,
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct BorderPoint {
     pub x: u8,
     pub y: u8,
@@ -127,6 +128,66 @@ impl Part {
                 std::slice::from_raw_parts(self.borders_data, size)
             }
         }
+    }
+
+    /// Returns a list of tuples: ((x1, y1), (x2, y2), sag)
+    pub fn rope_sections(&self) -> Option<Vec<((i16, i16), (i16, i16), i16)>> {
+        if self.part_type != PartType::Rope.to_u16() { return None; }
+
+        let mut sections = vec![];
+
+        let rope = unsafe { self.rope_data[0].as_ref().unwrap() };
+        let mut curpart_raw = rope.part1;
+        let mut nextpart_raw = unsafe { curpart_raw.as_ref().unwrap() }.links_to[rope.part1_rope_slot as usize];
+        if nextpart_raw.is_null() {
+            nextpart_raw = rope.part2;
+        }
+
+        while !curpart_raw.is_null() && !nextpart_raw.is_null() {
+            let curpart = unsafe { curpart_raw.as_ref().unwrap() };
+            let nextpart = unsafe { nextpart_raw.as_ref().unwrap() };
+
+            let pos1: ShortVec;
+            if curpart.part_type == PartType::Pulley.to_u16() {
+                let rpd = unsafe { curpart.rope_data[0].as_ref().unwrap() };
+                pos1 = rpd.ends_pos[1];
+            } else {
+                pos1 = rope.ends_pos[0];
+            }
+
+            let pos2: ShortVec;
+            if nextpart.part_type == PartType::Pulley.to_u16() {
+                let rpd = unsafe { nextpart.rope_data[0].as_ref().unwrap() };
+                pos2 = rpd.ends_pos[0];
+            } else {
+                pos2 = rope.ends_pos[1];
+            }
+
+            // DRAW ROPE HERE
+
+            let sag: i16;
+            if curpart.part_type == PartType::Pulley.to_u16() && nextpart.part_type == PartType::Pulley.to_u16() {
+                sag = 0;
+            } else {
+                sag = unsafe { calculate_rope_sag(curpart, rope, 3) };
+            }
+
+            sections.push(( (pos1.x, pos1.y), (pos2.x, pos2.y), sag ));
+            if sections.len() > 256 {
+                // we're probably doing something wrong
+                // might have ended up with a cycle somehow
+                panic!("too many sections!");
+            }
+
+            curpart_raw = nextpart_raw;
+            if nextpart.part_type == PartType::Pulley.to_u16() {
+                nextpart_raw = nextpart.links_to[0];
+            } else {
+                nextpart_raw = std::ptr::null_mut();
+            }
+        }
+
+        Some(sections)
     }
 }
 
@@ -276,8 +337,13 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
             6 => Some((88, 50)),
             _ => None
         },
+        PartType::Pulley => Some((16, 16)),
+        PartType::RopeSeveredEnd => None,
         PartType::Nail => Some((16, 17)),
-        _ => None
+        _ => {
+            println!("Unimplemented part_image_size: {}", part_type);
+            None
+        }
     };
 
     if let Some((width, height)) = t {

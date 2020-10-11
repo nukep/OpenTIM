@@ -1,8 +1,8 @@
 use nannou::prelude::*;
 use nannou::image;
 use std::collections::HashMap;
-use crate::resource_dos;
 use crate::tim_c;
+use crate::part::PartType;
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 
@@ -95,18 +95,25 @@ impl ImageId {
     }
 }
 
+enum Flip {
+    None,
+    Vertical,
+    Horizontal,
+}
+
 enum RenderItem {
     Image {
         id: ImageId,
         x: i32,
-        y: i32
+        y: i32,
+        flip: Flip
     },
     Rope {
         x1: i32,
         y1: i32,
         x2: i32,
         y2: i32,
-        sag: u32
+        sag: i32
     },
     Text {
         x: i32,
@@ -119,8 +126,6 @@ struct Model {
     textures: HashMap<ImageId, wgpu::Texture>,
     ticks: u32,
     render_items: Vec<RenderItem>,
-    balloon_vel_y: i32,
-    balloon_y: i32,
     
     clicked: bool,
     show_borders: bool,
@@ -155,7 +160,7 @@ fn model(app: &App) -> Model {
         textures.insert(ImageId::new(filename, slice_idx), texture);
     }).unwrap();
 
-    Model { textures, ticks: 0, render_items: vec![], balloon_vel_y: 0, balloon_y: 480<<9, mouse_pos: None, clicked: false, show_borders: false }
+    Model { textures, ticks: 0, render_items: vec![], mouse_pos: None, clicked: false, show_borders: false }
 }
 
 // Handle events related to the window and update the model if necessary
@@ -180,6 +185,13 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
 }
 
 fn update(app: &App, model: &mut Model, _update: Update) {
+    if model.clicked && model.ticks % 2 == 0 {
+        unsafe {
+            tim_c::advance_parts();
+            tim_c::all_parts_set_prev_vars();
+        }
+    }
+
     let mut render_items = vec![];
 
     // TIM logo
@@ -191,41 +203,89 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     // render_items.push(RenderItem::Image { id: ImageId::Part(56, 5), x: 127, y: 67 });
     // render_items.push(RenderItem::Image { id: ImageId::Part(56, 6), x: 127+154, y: 67 });
 
-    let balloon_y = model.balloon_y >> 9;
-
-    // render_items.push(RenderItem::Image { id: ImageId::Part(4, 0), x: 100, y: balloon_y });
-    // render_items.push(RenderItem::Image { id: ImageId::Part(23, 0), x: 200-8, y: 400-8 });
-    // render_items.push(RenderItem::Rope { x1: 100+16, y1: balloon_y + 48, x2: 200, y2: 400, sag: 100 });
-    // render_items.push(RenderItem::Text { x: 0, y: 0, text: "Hello World!".into() });
-
     
     {
+        let mut rope_render_items = vec![];
         let iter = unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) };
         for part in iter {
-            if part.flags2 & 0x2000 == 0 {
-                let part_x = part.pos_render.x as i32;
-                let part_y = part.pos_render.y as i32;
-                render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, part.state1 as usize), x: part_x, y: part_y });
+            let part_type = PartType::from_u16(part.part_type);
+
+            match part_type {
+                PartType::Rope => {
+                    if let Some(sections) = part.rope_sections() {
+                        for ((x1, y1), (x2, y2), sag) in sections.into_iter() {
+                            rope_render_items.push(RenderItem::Rope {
+                                x1: x1 as i32,
+                                y1: y1 as i32,
+                                x2: x2 as i32,
+                                y2: y2 as i32,
+                                sag: sag as i32
+                            });
+                        }
+                    }
+                },
+
+                PartType::BrickWall | PartType::DirtWall | PartType::WoodWall | PartType::PipeStraight => {
+                    let start_x = part.pos_render.x as i32;
+                    let start_y = part.pos_render.y as i32;
+                    if part.size.x == 16 {
+                        // vertical vall
+
+                        let count = (part.size.y / 16) as i32;
+
+                        render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, 4), x: start_x, y: start_y, flip: Flip::None });
+                        for i in 0..count-2 {
+                            let image = if i % 2 == 0 { 5 } else { 6 };
+                            render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, image), x: start_x, y: start_y + (i+1)*16, flip: Flip::None });
+                        }
+                        render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, 7), x: start_x, y: start_y + (count-1)*16, flip: Flip::None });
+                    } else {
+                        // horizontal wall
+
+                        let count = (part.size.x / 16) as i32;
+
+                        render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, 0), x: start_x, y: start_y, flip: Flip::None });
+                        for i in 0..count-2 {
+                            let image = if i % 2 == 0 { 1 } else { 2 };
+                            render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, image), x: start_x + (i+1)*16, y: start_y, flip: Flip::None });
+                        }
+                        render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, 3), x: start_x + (count-1)*16, y: start_y, flip: Flip::None });
+                    }
+                },
+
+                _ => {
+                    if part.flags2 & 0x2000 == 0 {
+                        let part_x = part.pos_render.x as i32;
+                        let part_y = part.pos_render.y as i32;
+
+                        let flip = match ((part.flags2 & 0x10) != 0, (part.flags2 & 0x20) != 0) {
+                            (false, false) => Flip::None,
+                            (true, false) => Flip::Horizontal,
+                            (false, true) => Flip::Vertical,
+                            (true, true) => {
+                                // I don't think this one is possible?
+                                println!("flip - We made a wrong assumption!");
+                                Flip::None
+                            }
+                        };
+
+                        render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, part.state1 as usize), x: part_x, y: part_y, flip: flip });
+                    }
+                }
             }
         }
+
+        // Render all ropes last
+        render_items.append(&mut rope_render_items);
     }
 
     if let Some((x, y)) = model.mouse_pos {
-        render_items.push(RenderItem::Image { id: ImageId::Mouse(MouseIcon::Default), x: x, y: y });
+        render_items.push(RenderItem::Image { id: ImageId::Mouse(MouseIcon::Default), x: x, y: y, flip: Flip::None });
     }
 
     model.render_items = render_items;
 
     model.ticks = model.ticks.wrapping_add(1);
-    model.balloon_y += model.balloon_vel_y;
-    model.balloon_vel_y = std::cmp::max(model.balloon_vel_y.wrapping_sub(25), -2000);
-
-    if model.clicked && model.ticks % 2 == 0 {
-        unsafe {
-            tim_c::advance_parts();
-            tim_c::all_parts_set_prev_vars();
-        }
-    }
 }
 
 #[inline(always)]
@@ -257,16 +317,23 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     // draw.background().color(MIDNIGHTBLUE);
     draw.background().rgb(0.0, 160.0/255.0, 160.0/255.0);
+    // draw.background().rgb(1.0, 1.0, 1.0);
 
     let transform = |x: f32, y: f32| -> (f32, f32) {
         (x - (SCREEN_WIDTH as f32 / 2.0), - (y - (SCREEN_HEIGHT as f32 / 2.0)))
     };
 
-    {
+    if model.show_borders {
         let iter = unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) };
         for part in iter {
             let part_x = part.pos_x_hi_precision as f32 / 512.0;
             let part_y = part.pos_y_hi_precision as f32 / 512.0;
+
+            // Draw shape origin
+            {
+                let (x, y) = transform(part_x, part_y);
+                draw.ellipse().color(BLACK).x_y(x, y).w_h(5.0, 5.0);
+            }
 
             // Draw shape border
 
@@ -280,22 +347,21 @@ fn view(app: &App, model: &Model, frame: Frame) {
             draw.polygon().rgba8(0,0,0,64).points(border_iter);
 
             // Draw normals
-            if model.show_borders {
-                // Big crazy iterator that yields a pair of the border point and the next one. (point_n, point_n+1).
-                let niter = part.border_points().iter().zip(part.border_points().iter().cycle().skip(1)).take(part.border_points().iter().count());
 
-                for (a, b) in niter {
-                    let normal = a.normal_angle as f32 / 65536.0;
-                    let ox = part_x + (a.x as f32 + b.x as f32) / 2.0;
-                    let oy = part_y + (a.y as f32 + b.y as f32) / 2.0;
+            // Big crazy iterator that yields a pair of the border point and the next one. (point_n, point_n+1).
+            let niter = part.border_points().iter().zip(part.border_points().iter().cycle().skip(1)).take(part.border_points().iter().count());
 
-                    let s = f32::sin(normal*3.141592*2.0) * 3.0;
-                    let c = f32::cos(normal*3.141592*2.0) * 3.0;
+            for (a, b) in niter {
+                let normal = a.normal_angle as f32 / 65536.0;
+                let ox = part_x + (a.x as f32 + b.x as f32) / 2.0;
+                let oy = part_y + (a.y as f32 + b.y as f32) / 2.0;
 
-                    let (ox, oy) = transform(ox, oy);
+                let s = f32::sin(normal*3.141592*2.0) * 3.0;
+                let c = f32::cos(normal*3.141592*2.0) * 3.0;
 
-                    draw.line().color(BLACK).points(pt2(ox, oy), pt2(ox-s, oy+c));
-                }
+                let (ox, oy) = transform(ox, oy);
+
+                draw.line().color(BLACK).points(pt2(ox, oy), pt2(ox-s, oy+c));
             }
         }
     }
@@ -303,12 +369,15 @@ fn view(app: &App, model: &Model, frame: Frame) {
     if !model.show_borders {
         for item in model.render_items.iter() {
             match item {
-                RenderItem::Image { id, x, y } => {
+                RenderItem::Image { id, x, y, flip } => {
                     if let Some(t) = model.textures.get(id) {
                         let [w, h] = t.size();
                         let (sx, sy) = transform(*x as f32 + w as f32 / 2.0, *y as f32 + h as f32 / 2.0);
-                        draw.texture(t)
-                        .x_y(sx, sy);
+                        match *flip {
+                            Flip::None =>       draw.texture(t).x_y(sx, sy),
+                            Flip::Horizontal => draw.texture(t).w_h(-(w as f32), h as f32).x_y(sx, sy),
+                            Flip::Vertical   => draw.texture(t).w_h(w as f32,    -(h as f32)).x_y(sx, sy),
+                        };
                     }
                 },
                 &RenderItem::Rope { x1, y1, x2, y2, sag } => {
