@@ -43,7 +43,7 @@ struct PartDef {
     // Number of elements is the number of states (state1).
     struct SByteVec *render_pos_offsets;
     // Number of elements is the number of states (state1).
-    struct ShortVec *field_0x1a;
+    struct ShortVec *explicit_sizes;
 
     // "Goobers" is a codename.
     byte goobers[2];            // TIMWIN offset: 0x1c
@@ -1223,7 +1223,7 @@ struct PartDef BOWLING_BALL = {
 
     .field_0x16 = 0,
     .render_pos_offsets = 0,
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 3, 0xff },
     .borders = 8,
@@ -1256,7 +1256,7 @@ struct PartDef BRICK_WALL = {
 
     .field_0x16 = 0,
     .render_pos_offsets = 0,
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 4, 0xff },
     .borders = 4,
@@ -1289,7 +1289,7 @@ struct PartDef INCLINE = {
 
     .field_0x16 = 0,
     .render_pos_offsets = 0,
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 4, 0xff },
     .borders = 4,
@@ -1323,7 +1323,7 @@ struct PartDef TEETER_TOTTER = {
     .field_0x16 = 0,
      // TIMWIN: 1108:2059. 3 states.
     .render_pos_offsets = (struct SByteVec[3]){ {0, 0}, {0, 12}, {0, 0} },
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 4, 0xff },
     .borders = 8,
@@ -1357,7 +1357,7 @@ struct PartDef BALLOON = {
     .field_0x16 = 0,
     // TIMWIN: 1108:205F. 7 states.
     .render_pos_offsets = (struct SByteVec[7]){ {0, 0}, {-15, -9}, {-20, -5}, {-28, 8}, {-30, 25}, {-26, 41}, {-26, 56} },
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 3, 0xff },
     .borders = 8,
@@ -1390,7 +1390,7 @@ struct PartDef PULLEY = {
 
     .field_0x16 = 0,
     .render_pos_offsets = 0,
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 2, 0xff },
     .borders = 0,
@@ -1423,7 +1423,7 @@ struct PartDef ROPE = {
 
     .field_0x16 = 0,
     .render_pos_offsets = 0,
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 1, 0xff },
     .borders = 0,
@@ -1464,7 +1464,7 @@ struct PartDef ROPE_SEVERED_END = {
 
     .field_0x16 = 0,
     .render_pos_offsets = 0,
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 4, 0xff },
     .borders = 0,
@@ -1497,7 +1497,7 @@ struct PartDef NAIL = {
 
     .field_0x16 = 0,
     .render_pos_offsets = 0,
-    .field_0x1a = 0,
+    .explicit_sizes = 0,
 
     .goobers = { 4, 0xff },
     .borders = 3,
@@ -1592,12 +1592,18 @@ struct SByteVec* part_data31_render_pos_offsets(enum PartType type) {
     return def->render_pos_offsets;
 }
 
-struct ShortVec* part_data31_field_0x1a(enum PartType type) {
+bool part_explicit_size(enum PartType type, u16 index, struct ShortVec *size_out) {
     struct PartDef *def = part_def(type);
     if (!def) {
-        TRACE_ERROR("part_data31_field_0x1a - def not found");
+        TRACE_ERROR("part_explicit_size - def not found");
         return 0;
     }
 
-    return def->field_0x1a;
+    if (!def->explicit_sizes) {
+        return 0;
+    }
+
+    *size_out = def->explicit_sizes[index];
+
+    return 1;
 }

@@ -112,7 +112,7 @@ u16 part_order(enum PartType type);
 s16 part_acceleration(enum PartType type);
 s16 part_terminal_velocity(enum PartType type);
 struct SByteVec* part_data31_render_pos_offsets(enum PartType type);
-struct ShortVec* part_data31_field_0x1a(enum PartType type);
+bool part_explicit_size(enum PartType type, u16 index, struct ShortVec *size_out);
 
 
 enum LevelState {

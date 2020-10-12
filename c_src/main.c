@@ -290,13 +290,13 @@ void part_set_size(struct Part *part) {
         return;
     }
 
-    struct ShortVec *v = part_data31_field_0x1a(part->type);
-    if (v) {
-        part->size = v[part->state1];
+    struct ShortVec size;
+
+    if (part_explicit_size(part->type, part->state1, &size)) {
+        part->size = size;
         return;
     }
 
-    struct ShortVec size;
     if (part_image_size(part->type, part->state1, &size)) {
         part->size = size;
         return;
