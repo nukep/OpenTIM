@@ -338,6 +338,19 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
             _ => None
         },
         PartType::Pulley => Some((16, 16)),
+        PartType::PokeyTheCat => match index {
+            0 => Some((40, 41)),
+            1 => Some((72, 57)),
+            2 => Some((56, 42)),
+            3 => Some((48, 41)),
+            4 => Some((56, 41)),
+            5 => Some((56, 41)),
+            6 => Some((56, 43)),
+            7 => Some((56, 43)),
+            8 => Some((56, 43)),
+            9 => Some((56, 44)),
+            _ => None
+        },
         PartType::RopeSeveredEnd => None,
         PartType::Nail => Some((16, 17)),
         _ => {

@@ -72,6 +72,7 @@ bool calculate_line_intersection(const struct Line *a, const struct Line *b, str
 struct Part* part_new(enum PartType type);
 void insert_part_into_static_parts(struct Part *part);
 void insert_part_into_moving_parts(struct Part *part);
+bool part_collides_with_playfield_part(struct Part *part);
 
 struct PartDef *part_def(enum PartType type);
 
@@ -1205,6 +1206,53 @@ int create_nail(struct Part *part) {
     return 0;
 }
 
+/* TIMWIN: 1090:1094 */
+void stub_1090_1094(struct Part *part, enum GetPartsFlags param2, s16 param3, s16 param4, s16 param5, s16 param6) {
+    part->interactions = 0;
+
+    for (struct Part *curpart = get_first_part(param2); curpart != 0; curpart = next_part_or_fallback(curpart, param2 & CHOOSE_MOVING_PART)) {
+        if (part == curpart) continue;
+        if (ANY_FLAGS(curpart->flags2, F2_DISAPPEARED)) continue;
+
+        s16 somex = curpart->pos.x + curpart->size.x - part->pos.x;
+
+        if (somex >= param3) {
+            s16 field_0x7a = somex >= 0 ? -1 : somex;
+            s16 x = curpart->pos.x - (part->pos.x + part->size.x);
+            if (x <= param4) {
+                s16 tmp1 = x <= 0 ? 1 : x;
+
+                x = abs(x);
+                somex = abs(somex);
+                if (x < somex) {
+                    field_0x7a = tmp1;
+                }
+                x = curpart->pos.y + curpart->size.y - part->pos.y;
+                if (x >= param5) {
+                    s16 field_0x7c = x >= 0 ? -1 : x;
+
+                    s16 y = curpart->pos.y - (part->pos.y + part->size.y);
+                    if (y <= param6) {
+                        tmp1 = y <= 0 ? 1 : y;
+
+                        x = abs(x);
+                        y = abs(y);
+
+                        if (y < x) {
+                            field_0x7c = tmp1;
+                        }
+
+                        curpart->interactions = part->interactions;
+                        part->interactions = curpart;
+                        curpart->field_0x7A = field_0x7a;
+                        curpart->field_0x7C = field_0x7c;
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct PartDef BOWLING_BALL = {
     .flags1 = 0x0800,
     .flags3 = 0x0008,
@@ -1437,6 +1485,204 @@ struct PartDef ROPE = {
     .rope_func = default_rope,
 };
 
+/* TIMWIN: 1048:1434 */
+void reset_pokey_the_cat(struct Part *part) {
+    // TIMWIN: 1108:0bf8
+    static const struct ByteVec POKEY_LEFT_BORDERS[5] = {
+        { 0, 7 }, { 10, 0 }, { 36, 26 }, { 36, 37 }, { 10, 40 }
+    };
+    // TIMWIN: 1108:0c02
+    static const struct ByteVec POKEY_RIGHT_BORDERS[5] = {
+        { 3, 26 }, { 29, 0 }, { 39, 10 }, { 29, 40 }, { 3, 37 }
+    };
+    if (NO_FLAGS(part->flags2, F2_FLIP_HORZ)) {
+        set_border(part, POKEY_LEFT_BORDERS);
+    } else {
+        set_border(part, POKEY_RIGHT_BORDERS);
+    }
+
+    part_calculate_border_normals(part);
+}
+
+/* TIMWIN: 1078:05e5 */
+int create_pokey_the_cat(struct Part *part) {
+    part->flags1 |= 0x0400;
+    part->flags2 |= 0x8000;
+    ALLOC_BORDERS(part);
+    reset_pokey_the_cat(part);
+    return 0;
+}
+
+/* TIMWIN: 1048:148a */
+int bounce_pokey_the_cat(struct Part *part) {
+    struct Part *cat = part->bounce_part;
+    if (cat->state1 == 0) {
+        cat->state1 = 1;
+        cat->extra1 = 0;
+        part_set_size_and_pos_render(cat);
+        play_sound(0x07);
+    }
+    return 1;
+}
+
+/* TIMWIN: 1048:14cf */
+void run_pokey_the_cat(struct Part *part) {
+    if (NO_FLAGS(part->flags2, F2_FLIP_VERT)) {
+        s16 y_delta = abs(part->pos.y - part->pos_prev2.y);
+
+        if (y_delta < 2 || part->state1 > 1) {
+            if (part->state1 == 1) {
+                part->extra1 += 1;
+                if (part->extra1 > 12) {
+                    s16 move_x = NO_FLAGS(part->flags2, F2_FLIP_HORZ) ? -32 : 32;
+
+                    part->extra1 = 0;
+
+                    part->pos.x += move_x;
+                    part_set_size_and_pos_render(part);
+
+                    if (part_collides_with_playfield_part(part)) {
+                        part->pos.x -= move_x*2;
+                        part_set_size_and_pos_render(part);
+
+                        if (part_collides_with_playfield_part(part)) {
+                            part->pos.x += move_x;
+                            part_set_size_and_pos_render(part);
+
+                            part->state1 = 0;
+                        } else {
+                            part->state1 = 2;
+                            part->flags2 ^= F2_FLIP_HORZ;
+                        }
+                    } else {
+                        part->state1 = 2;
+                    }
+
+                    part->pos_x_hi_precision = part->pos.x * 512;
+                }
+            } else {
+                bool someflag = part->state1 != 0;
+
+                if (part->state1 != 0) {
+                    part->state1 += 1;
+                    if (part->state1 == 10) {
+                        part->state1 = 0;
+                    }
+                }
+
+                if (part->state1 == 0 || part->state1 > 7) {
+                    if (NO_FLAGS(part->flags2, F2_FLIP_HORZ)) {
+                        stub_1090_1094(part, 0x3000, -240, 0, 0, 0);
+                    } else {
+                        stub_1090_1094(part, 0x3000, 0, 240, 0, 0);
+                    }
+
+                    EACH_INTERACION(part, curpart) {
+                        s16 move_x = 0;
+                        if (curpart->type == P_BOB_THE_FISH) {
+                            if (curpart->state1 < 11) {
+                                move_x = 0x60;
+                            } else {
+                                move_x = 0x124;
+                            }
+                        } else if (curpart->type == P_MORT_THE_MOUSE) {
+                            move_x = curpart->pos.x - part->pos.x + 16;
+                            s16 tmp = curpart->pos.y - part->pos.y;
+                            if (move_x <= 0 || move_x > 55 || tmp <= 0 || tmp > 39) {
+                                move_x = someflag ? 192 : 128;
+                            } else {
+                                part->flags3 |= 0x0080;
+                                stub_10a8_2b6d(curpart, 3);
+                                curpart->flags2 |= F2_DISAPPEARED;
+                                curpart->flags3 |= 0x0200;
+                                play_sound(0x0D);
+                                move_x = -1;
+                            }
+                        } else {
+                            move_x = -1;
+                        }
+
+                        if (abs(curpart->field_0x7A) < move_x && part->state1 == 0) {
+                            move_x = NO_FLAGS(part->flags2, F2_FLIP_HORZ) ? -32 : 32;
+                            part->extra1 = 0;
+                            part->pos.x += move_x;
+                            part_set_size_and_pos_render(part);
+                            if (!part_collides_with_playfield_part(part)) {
+                                part->state1 = 2;
+                            } else {
+                                part->pos.x -= move_x;
+                                part_set_size_and_pos_render(part);
+                                part->state1 = 0;
+                            }
+                            part->pos_x_hi_precision = part->pos.x * 512;
+                            break;
+                        }
+                    }
+                }
+            }
+        } else if (part->extra1 < 5) {
+            part->extra1 += 1;
+        } else {
+            part->flags2 |= F2_FLIP_VERT;
+            part->state1 = 1;
+            part->extra1 = 0;
+        }
+
+    } else {
+        if (ANY_FLAGS(part->flags1, 0x0002)) {
+            part->flags2 &= ~(F2_FLIP_VERT);
+            part->state1 = 0;
+        }
+    }
+
+    if (part->state1 != part->state1_prev1) {
+        part_set_size_and_pos_render(part);
+    }
+}
+
+/* TIMWIN: 1048:1771 */
+void flip_pokey_the_cat(struct Part *part, int flag) {
+    part->flags2 ^= F2_FLIP_HORZ;
+    reset_pokey_the_cat(part);
+    part_set_size_and_pos_render(part);
+    stub_10a8_2b6d(part, 3);
+    stub_10a8_21cb(part, 2);
+}
+
+struct PartDef POKEY_THE_CAT = {
+    .flags1 = 0x0800,
+    .flags3 = 0x0008,
+    .size_something2 = { 40, 41 },
+    .size = { 40, 39 },
+    .create_func = create_pokey_the_cat,
+
+    .density = 2000,
+    .mass = 120,
+    .bounciness = 0,
+    .friction = 64,
+
+    .field_0x0c = 0x0000,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x00f0,
+    .field_0x12 = 0x00f0,
+
+    .field_0x16 = 0,
+    // TIMWIN: 1108:206D. 10 states.
+    .render_pos_offsets = (struct SByteVec[10]){ {0,0}, {-6,-16}, {19,-1}, {14,0}, {10,0}, {8,0}, {6,-2}, {-1,-2}, {-5,-2}, {-9,-3} },
+    .explicit_sizes = 0,
+
+    .goobers = { 3, 0xff },
+    .borders = 5,
+    .part_order = 35,
+
+    .bounce_func = bounce_pokey_the_cat,
+    .run_func = run_pokey_the_cat,
+    .reset_func = reset_pokey_the_cat,
+    .flip_func = flip_pokey_the_cat,
+    .resize_func = default_resize,
+    .rope_func = default_rope,
+};
+
 /* TIMWIN: 1078:0f7b */
 int create_rope_severed_end(struct Part *part) {
     part->flags2 |= 0x0004;
@@ -1520,6 +1766,7 @@ struct PartDef *part_def(enum PartType type) {
         case P_BALLOON: return &BALLOON;
         case P_PULLEY: return &PULLEY;
         case P_ROPE: return &ROPE;
+        case P_POKEY_THE_CAT: return &POKEY_THE_CAT;
         case P_ROPE_SEVERED_END: return &ROPE_SEVERED_END;
         case P_NAIL: return &NAIL;
         default: return 0;

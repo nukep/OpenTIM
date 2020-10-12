@@ -852,6 +852,112 @@ bool should_parts_skip_collision(enum PartType a, enum PartType b) {
     return 0;
 }
 
+/* TIMWIN: 10a8:0555 */
+bool part_borders_intersect(const struct Part *part1, const struct Part *part2) {
+    u16 p1bi = 1;
+    struct BorderPoint *p1bd = part1->borders_data;
+    if (!p1bd) return 0;
+
+    s16 p1b0x = part1->pos.x + p1bd[0].x;
+    s16 p1b0y = part1->pos.y + p1bd[0].y;
+    s16 p1b1x = part1->pos.x + p1bd[1].x;
+    s16 p1b1y = part1->pos.y + p1bd[1].y;
+    s16 p1origin_x = p1b0x;
+    s16 p1origin_y = p1b0y;
+
+    while (p1bd) {
+        struct Line line1 = { {0, 0}, {p1b1x - p1origin_x, p1b1y - p1origin_y} };
+        four_points_adjust_p1_by_one(&line1);
+
+        u16 p2bi = 1;
+        struct BorderPoint *p2bd = part2->borders_data;
+        if (p2bd) {
+            s16 p2b0x = part2->pos.x + p2bd[0].x;
+            s16 p2b0y = part2->pos.y + p2bd[0].y;
+            s16 p2b1x = part2->pos.x + p2bd[1].x;
+            s16 p2b1y = part2->pos.y + p2bd[1].y;
+            s16 p2origin_x = p2b0x;
+            s16 p2origin_y = p2b0y;
+
+            while (p2bd) {
+                struct Line line2 = { {p2origin_x - p1origin_x, p2origin_y - p1origin_y},
+                                      {p2b1x - p1origin_x, p2b1y - p1origin_y} };
+                four_points_adjust_p1_by_one(&line2);
+
+                struct ShortVec intersection;
+                bool intersects = calculate_line_intersection(&line1, &line2, &intersection);
+
+                if (intersects && !VEC_EQ(intersection, line1.p1)) {
+                    return 1;
+                }
+
+                p2bi += 1;
+                if (p2bi > part2->num_borders) {
+                    p2bd = 0;
+                } else {
+                    p2origin_x = p2b1x;
+                    p2origin_y = p2b1y;
+                    if (part2->num_borders == p2bi) {
+                        p2b1x = p2b0x;
+                        p2b1y = p2b0y;
+                    } else {
+                        p2b1x = part2->pos.x + p2bd[2].x;
+                        p2b1y = part2->pos.y + p2bd[2].y;
+                    }
+                    p2bd += 1;
+                }
+            }
+        }
+        p1bi += 1;
+        if (p1bi > part1->num_borders) {
+            p1bd = 0;
+        } else {
+            p1origin_x = p1b1x;
+            p1origin_y = p1b1y;
+            if (part1->num_borders == p1bi) {
+                p1b1x = p1b0x;
+                p1b1y = p1b0y;
+            } else {
+                p1b1x = part1->pos.x + p1bd[2].x;
+                p1b1y = part1->pos.y + p1bd[2].y;
+            }
+            p1bd += 1;
+        }
+    }
+    return 0;
+}
+
+/* TIMWIN: 10a8:0429 */
+bool part_collides_with_playfield_part(const struct Part *part) {
+    EACH_STATIC_THEN_MOVING_PART(curpart) {
+        if (curpart == part) continue;
+        if (ANY_FLAGS(curpart->flags2, F2_DISAPPEARED)) continue;
+        if (should_parts_skip_collision(part->type, curpart->type)) continue;
+
+        if (NO_FLAGS(part->flags1, 0x4000) || NO_FLAGS(curpart->flags1, 0x4000)) {
+            if (curpart->pos.x < part->pos.x+part->size.x &&
+                part->pos.x    < curpart->pos.x + curpart->size.x &&
+                curpart->pos.y < part->pos.y+part->size.y &&
+                part->pos.y    < curpart->pos.y + curpart->size.y)
+            {
+                if (part_borders_intersect(part, curpart)) {
+                    return 1;
+                }
+            }
+        } else {
+            if (curpart->pos.x < part->pos.x+part->size_something2.x &&
+                part->pos.x    < curpart->pos.x + curpart->size_something2.x &&
+                curpart->pos.y < part->pos.y+part->size_something2.y &&
+                part->pos.y    < curpart->pos.y + curpart->size_something2.y)
+            {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 /* TIMWIN: 1090:158b */
 bool bucket_contains(struct Part *bucket, struct Part *contains) {
     if (bucket->type != P_BUCKET) return 0;
