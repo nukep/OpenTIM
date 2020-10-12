@@ -99,6 +99,7 @@ enum Flip {
     None,
     Vertical,
     Horizontal,
+    Both
 }
 
 enum RenderItem {
@@ -262,11 +263,7 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                             (false, false) => Flip::None,
                             (true, false) => Flip::Horizontal,
                             (false, true) => Flip::Vertical,
-                            (true, true) => {
-                                // I don't think this one is possible?
-                                println!("flip - We made a wrong assumption!");
-                                Flip::None
-                            }
+                            (true, true) => Flip::Both
                         };
 
                         render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, part.state1 as usize), x: part_x, y: part_y, flip: flip });
@@ -335,6 +332,26 @@ fn view(app: &App, model: &Model, frame: Frame) {
                 draw.ellipse().color(BLACK).x_y(x, y).w_h(5.0, 5.0);
             }
 
+            // Draw bounding rectangle(s)
+
+            {
+                let ox = part.pos_render.x as f32;
+                let oy = part.pos_render.y as f32;
+                let (x1, y1) = transform(ox, oy);
+                let (x2, y2) = transform(ox + part.size.x as f32, oy + part.size.y as f32);
+                let points = vec![pt2(x1, y1), pt2(x2, y1), pt2(x2, y2), pt2(x1, y2), pt2(x1, y1)];
+                draw.polyline().rgba8(255,0,0,128).points(points.into_iter());
+            }
+
+            {
+                let ox = part_x;
+                let oy = part_y;
+                let (x1, y1) = transform(ox, oy);
+                let (x2, y2) = transform(ox + part.size_something2.x as f32, oy + part.size_something2.y as f32);
+                let points = vec![pt2(x1, y1), pt2(x2, y1), pt2(x2, y2), pt2(x1, y2), pt2(x1, y1)];
+                draw.polyline().rgba8(0,0,255,128).points(points.into_iter());
+            }
+
             // Draw shape border
 
             let border_iter = part.border_points().iter().map(|p| {
@@ -377,6 +394,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
                             Flip::None =>       draw.texture(t).x_y(sx, sy),
                             Flip::Horizontal => draw.texture(t).w_h(-(w as f32), h as f32).x_y(sx, sy),
                             Flip::Vertical   => draw.texture(t).w_h(w as f32,    -(h as f32)).x_y(sx, sy),
+                            Flip::Both       => draw.texture(t).w_h(-(w as f32), -(h as f32)).x_y(sx, sy),
                         };
                     }
                 },
