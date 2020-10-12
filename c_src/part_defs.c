@@ -39,6 +39,7 @@ struct PartDef {
     // we get the image size (the only important part I'm aware of) via part_image_size
     // struct Data31Field0x14 **field_0x14;
 
+    // Number of elements is the number of states (state1).
     s16 field_0x16;
     // Number of elements is the number of states (state1).
     struct SByteVec *render_pos_offsets;
@@ -560,8 +561,8 @@ void mort_the_mouse_cage_start(struct Part *part) {
 
 /* TIMWIN: 1070:1b36 */
 void bob_the_fish_break_bowl(struct Part *part) {
-    if (part->state1 < 0xb) {
-        part->state1 = 0xb;
+    if (part->state1 < 11) {
+        part->state1 = 11;
         part_set_size_and_pos_render(part);
         play_sound(10);
 
@@ -575,6 +576,8 @@ void bob_the_fish_break_bowl(struct Part *part) {
 
         part->borders_data[2].x = 39;
         part->borders_data[2].y = 47;
+
+        // Known quirk: normals aren't recalculated
     }
 }
 
@@ -1683,6 +1686,105 @@ struct PartDef POKEY_THE_CAT = {
     .rope_func = default_rope,
 };
 
+/* TIMWIN: 1070:1a60 */
+void reset_bob_the_fish(struct Part *part) {
+    // TIMWIN: 1108:0d18
+    static const struct ByteVec BOB_THE_FISH_BORDERS[8] = {
+        {0,18}, {11,0}, {37,0}, {47,18}, {47,35}, {39,47}, {8,47}, {0,34}
+    };
+    part->num_borders = 8;
+    set_border(part, BOB_THE_FISH_BORDERS);
+}
+
+/* TIMWIN: 1078:06e0 */
+int create_bob_the_fish(struct Part *part) {
+    part->flags2 |= 0x1000;
+    ALLOC_BORDERS(part);
+    reset_bob_the_fish(part);
+    return 0;
+}
+
+/* TIMWIN: 1070:1aae */
+int bounce_bob_the_fish(struct Part *part) {
+    struct Part *bob = part->bounce_part;
+    if (bob->state1 > 10) {
+        return 1;
+    } else {
+        bob_the_fish_break_bowl(bob);
+        return 0;
+    }
+}
+
+/* TIMWIN: 1070:1ae5 */
+void run_bob_the_fish(struct Part *part) {
+    if (part->extra2 < 20) {
+        // Bob is still alive
+        part->state1 += 1;
+    }
+    if (part->state1 < 23) {
+        if (part->state1 == 11) {
+            part->state1 = 0;
+        }
+    } else {
+        part->state1 = 14;
+
+        // Death nears...
+        part->extra2 += 1;
+    }
+
+    if (part->state1 != part->state1_prev1) {
+        part_set_size_and_pos_render(part);
+    }
+}
+
+struct PartDef BOB_THE_FISH = {
+    .flags1 = 0x4800,
+    .flags3 = 0x0000,
+    .size_something2 = { 48, 48 },
+    .size = { 48, 48 },
+    .create_func = create_bob_the_fish,
+
+    .density = 2000,
+    .mass = 1000,
+    .bounciness = 128,
+    .friction = 16,
+
+    .field_0x0c = 0x0000,
+    .field_0x0e = 0x0000,
+    .field_0x10 = 0x00f0,
+    .field_0x12 = 0x00f0,
+
+    // TIMWIN: 1108:124d
+    .field_0x16 = 0,
+    // TIMWIN: 1108:12d7. 23 states
+    .render_pos_offsets = (struct SByteVec[23]){
+        {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},
+        // 11
+        {-16,8}, {-19,15}, {-25,19}, {-28,25}, {-28,25}, {-28,25}, {-28,25}, {-28,25},
+        // 19
+        {-28,22}, {-28,25}, {-28,25}, {-28,25}
+    },
+    // TIMWIN: 1108:127b
+    .explicit_sizes = (struct ShortVec[23]){
+        {48,48}, {48,48}, {48,48}, {48,48}, {48,48}, {48,48}, {48,48}, {48,48}, {48,48}, {48,48}, {48,48},
+        // 11
+        {88,43}, {88,38}, {96,37}, {104,32}, {104,32}, {104,32}, {104,32}, {104,32},
+        // 19
+        {104,35}, {104,32}, {104,32}, {104,32}
+    },
+
+    .goobers = { 3, 0xff },
+    .borders = 8,
+    .part_order = 38,
+
+    .bounce_func = bounce_bob_the_fish,
+    .run_func = run_bob_the_fish,
+    .reset_func = reset_bob_the_fish,
+    .flip_func = default_flip,
+    .resize_func = default_resize,
+    .rope_func = default_rope,
+};
+
 /* TIMWIN: 1078:0f7b */
 int create_rope_severed_end(struct Part *part) {
     part->flags2 |= 0x0004;
@@ -1767,6 +1869,7 @@ struct PartDef *part_def(enum PartType type) {
         case P_PULLEY: return &PULLEY;
         case P_ROPE: return &ROPE;
         case P_POKEY_THE_CAT: return &POKEY_THE_CAT;
+        case P_BOB_THE_FISH: return &BOB_THE_FISH;
         case P_ROPE_SEVERED_END: return &ROPE_SEVERED_END;
         case P_NAIL: return &NAIL;
         default: return 0;

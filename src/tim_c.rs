@@ -369,6 +369,40 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
     return 0;
 }
 
+// Returns a tuple of: (goober, image, x, y)
+pub fn part_get_render_images(part_type: PartType, state1: i16) -> Option<&'static [(u8, u8, i8, i8)]> {
+    match part_type {
+        // TIMWIN: 1108:124d
+        PartType::BobTheFish => match state1 {
+            0  => Some(&[(3, 0, 0, 0), (3, 1, 10, 11), (3, 12, 10, 27)]),
+            1  => Some(&[(3, 0, 0, 0), (3, 2, 15, 9), (3, 12, 10, 27)]),
+            2  => Some(&[(3, 0, 0, 0), (3, 3, 26, 16), (3, 12, 10, 27)]),
+            3  => Some(&[(3, 0, 0, 0), (3, 4, 31, 17), (3, 12, 10, 27)]),
+            4  => Some(&[(3, 0, 0, 0), (3, 5, 26, 16), (3, 12, 10, 27)]),
+            5  => Some(&[(3, 0, 0, 0), (3, 6, 10, 11), (3, 12, 10, 27)]),
+            6  => Some(&[(3, 0, 0, 0), (3, 7, 7, 11), (3, 12, 10, 27)]),
+            7  => Some(&[(3, 0, 0, 0), (3, 8, 6, 10), (3, 12, 10, 27)]),
+            8  => Some(&[(3, 0, 0, 0), (3, 9, 7, 16), (3, 12, 10, 27)]),
+            9  => Some(&[(3, 0, 0, 0), (3, 10, 8, 16), (3, 12, 10, 27)]),
+            10 => Some(&[(3, 0, 0, 0), (3, 11, 6, 10), (3, 12, 10, 27)]),
+            11 => Some(&[(3, 13, -16, 8)]),
+            12 => Some(&[(3, 14, -19, 15)]),
+            13 => Some(&[(3, 15, -25, 19)]),
+            14 => Some(&[(3, 16, -28, 25), (3, 17, 5, 39)]),
+            15 => Some(&[(3, 16, -28, 25), (3, 18, 5, 31)]),
+            16 => Some(&[(3, 16, -28, 25), (3, 19, 3, 29)]),
+            17 => Some(&[(3, 16, -28, 25), (3, 20, 5, 29)]),
+            18 => Some(&[(3, 16, -28, 25), (3, 21, -5, 27)]),
+            19 => Some(&[(3, 16, -28, 25), (3, 22, -5, 22)]),
+            20 => Some(&[(3, 16, -28, 25), (3, 23, 1, 31)]),
+            21 => Some(&[(3, 16, -28, 25), (3, 24, 5, 36)]),
+            22 => Some(&[(3, 16, -28, 25), (3, 25, 5, 38)]),
+            _ => None
+        },
+        _ => None
+    }
+}
+
 /// Partial from TIMWIN: 1090:0000
 /// Was pre-calculated in TIM each time the air pressure or gravity changed. Here we recalculate it each time.
 /// We can possibly memoize this call in the future if performance calls for it.

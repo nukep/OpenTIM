@@ -95,6 +95,7 @@ impl ImageId {
     }
 }
 
+#[derive(Copy, Clone)]
 enum Flip {
     None,
     Vertical,
@@ -256,8 +257,6 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 
                 _ => {
                     if part.flags2 & 0x2000 == 0 {
-                        let part_x = part.pos_render.x as i32;
-                        let part_y = part.pos_render.y as i32;
 
                         let flip = match ((part.flags2 & 0x10) != 0, (part.flags2 & 0x20) != 0) {
                             (false, false) => Flip::None,
@@ -266,7 +265,25 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                             (true, true) => Flip::Both
                         };
 
-                        render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, part.state1 as usize), x: part_x, y: part_y, flip: flip });
+                        if let Some(part_images) = tim_c::part_get_render_images(part_type, part.state1) {
+                            // This part renders multiple images together
+
+                            let part_x = part.pos.x as i32;
+                            let part_y = part.pos.y as i32;
+                            for &(_goober, index, x, y) in part_images {
+                                // TODO - flipping. use size_something to figure positions out.
+
+                                let x = x as i32;
+                                let y = y as i32;
+                                render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, index as usize), x: part_x+x, y: part_y+y, flip: flip });
+                            }
+                        } else {
+                            // This part renders a single image
+
+                            let part_x = part.pos_render.x as i32;
+                            let part_y = part.pos_render.y as i32;
+                            render_items.push(RenderItem::Image { id: ImageId::Part(part.part_type as u32, part.state1 as usize), x: part_x, y: part_y, flip: flip });
+                        }
                     }
                 }
             }
