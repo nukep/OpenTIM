@@ -201,6 +201,20 @@ struct Part* part_alloc() {
     return part;
 }
 
+void part_free_borders(struct Part *part) {
+    if (part->borders_data) {
+        free(part->borders_data);
+        part->num_borders = 0;
+        part->borders_data = 0;
+    }
+}
+
+void part_alloc_borders(struct Part *part, u16 length) {
+    part_free_borders(part);
+    part->num_borders = length;
+    part->borders_data = malloc(sizeof(struct BorderPoint) * part->num_borders);
+}
+
 struct BeltData* belt_data_alloc() {
     struct BeltData *belt = malloc(sizeof(struct BeltData));
     if (!belt) return 0;
@@ -217,6 +231,24 @@ struct RopeData* rope_data_alloc() {
     return rope;
 }
 
+void part_init_rope_data_primary(struct Part *part) {
+    struct RopeData *rope = rope_data_alloc();
+    part->rope_data[0] = rope;
+    if (!rope) {
+        return;
+    }
+    rope->rope_or_pulley_part = part;
+}
+
+void part_init_belt_data(struct Part *part) {
+    struct BeltData *belt = belt_data_alloc();
+    part->belt_data = belt;
+    if (!belt) {
+        return;
+    }
+    belt->belt_part = part;
+}
+
 /* TIMWIN: 1078:00f2 */
 struct Part* part_new(enum PartType type) {
     struct Part *part = part_alloc();
@@ -229,7 +261,11 @@ struct Part* part_new(enum PartType type) {
     part->flags3 = part_data30_flags3(type);
     part->size_something2 = part_data30_size_something2(type);
     part->size = part_data30_size(type);
-    part->num_borders = part_data31_num_borders(type);
+
+    // Note: The original game would assign a set number of borders for the part here.
+    // OpenTIM sets it later.
+    part->num_borders = 0;
+
     part->original_pos_x = -1;
     part->original_pos_y = -1;
 
@@ -313,21 +349,21 @@ void part_set_size_and_pos_render(struct Part *part) {
     u16 flags2 = part->flags2;
     part_set_size(part);
 
-    struct SByteVec *offsets = part_data31_render_pos_offsets(part->type);
-    if (!offsets) return;
-
-    struct SByteVec *v = offsets + state1;
+    struct SByteVec v;
+    if (!part_data31_render_pos_offset(part->type, state1, &v)) {
+        return;
+    }
 
     if (NO_FLAGS(flags2, F2_FLIP_HORZ)) {
-        part->pos_render.x += v->x;
+        part->pos_render.x += v.x;
     } else {
-        part->pos_render.x += part->size_something.x - v->x - part->size.x;
+        part->pos_render.x += part->size_something.x - v.x - part->size.x;
     }
 
     if (NO_FLAGS(flags2, F2_FLIP_VERT)) {
-        part->pos_render.y += v->y;
+        part->pos_render.y += v.y;
     } else {
-        part->pos_render.y += part->size_something.y - v->y - part->size.y;
+        part->pos_render.y += part->size_something.y - v.y - part->size.y;
     }
 }
 

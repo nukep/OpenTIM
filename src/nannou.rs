@@ -2,7 +2,9 @@ use nannou::prelude::*;
 use nannou::image;
 use std::collections::HashMap;
 use crate::tim_c;
+use crate::parts;
 use crate::part::PartType;
+use crate::debug;
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 
@@ -182,6 +184,9 @@ fn event(_app: &App, model: &mut Model, event: WindowEvent) {
         KeyPressed(Key::B) => {
             model.show_borders = !model.show_borders;
         },
+        KeyPressed(Key::G) => {
+            debug::dump_level_to_graphviz_file("out.gv").unwrap();
+        },
         _ => ()
     }
 }
@@ -265,7 +270,7 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                             (true, true) => Flip::Both
                         };
 
-                        if let Some(part_images) = tim_c::part_get_render_images(part_type, part.state1) {
+                        if let Some(&part_images) = parts::get_def(part_type).render_images.and_then(|l| l.get(part.state1 as usize)) {
                             // This part renders multiple images together
 
                             let part_x = part.pos.x as i32;

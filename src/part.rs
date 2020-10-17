@@ -18,7 +18,7 @@ pub enum PartType {
     Rope,
     Cage,
     PokeyTheCat,
-    Jackinthebox,
+    JackInTheBox,
     Gear,
     BobTheFish,
     Bellows,

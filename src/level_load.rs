@@ -156,6 +156,6 @@ fn part_load<F>(p: &level_file_format::Part, part: &mut tim_c::Part, part_ptr_fr
     }
 
     unsafe {
-        tim_c::part_alloc_borders_and_reset(part);
+        tim_c::part_reset(part);
     }
 }

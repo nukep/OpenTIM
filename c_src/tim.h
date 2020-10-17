@@ -100,7 +100,6 @@ u16 part_data30_flags1(enum PartType type);
 u16 part_data30_flags3(enum PartType type);
 struct ShortVec part_data30_size_something2(enum PartType type);
 struct ShortVec part_data30_size(enum PartType type);
-u16 part_data31_num_borders(enum PartType type);
 void part_run(struct Part *part);
 void part_reset(struct Part *part);
 int part_bounce(enum PartType type, struct Part *part);
@@ -111,7 +110,7 @@ s16 part_friction(enum PartType type);
 u16 part_order(enum PartType type);
 s16 part_acceleration(enum PartType type);
 s16 part_terminal_velocity(enum PartType type);
-struct SByteVec* part_data31_render_pos_offsets(enum PartType type);
+int part_data31_render_pos_offset(enum PartType type, u16 state1, struct SByteVec *out);
 bool part_explicit_size(enum PartType type, u16 index, struct ShortVec *size_out);
 
 

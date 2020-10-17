@@ -52,8 +52,8 @@
 0x8a,uint,,bounce_border_index,,
 0x8c,int,,original_pos_x,y,
 0x8e,int,,original_pos_y,y,
-0x90,uint,,original_state1,y,Related to state1
-0x92,uint,,original_state2,y,Related to state2
+0x90,int,,original_state1,y,Related to state1
+0x92,int,,original_state2,y,Related to state2
 0x94,uint,,original_flags2,y,Related to flags2
 0x96,int,,extra1,y,"If rope, the rope length from part1 to the next pulley/part. If Mort, countdown timer. There's evidence this is signed."
 0x98,int,,extra1_prev1,,

@@ -8,9 +8,10 @@ mod decoders;
 mod resource_dos;
 mod atmosphere;
 mod part;
+mod parts;
 mod math;
 mod nannou;
-mod tim_c;
+pub mod tim_c;
 mod level_file_format;
 mod level_load;
 

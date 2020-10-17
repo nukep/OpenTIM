@@ -3,6 +3,7 @@
 use std::os::raw::{c_int, c_char};
 use crate::part::PartType;
 use crate::atmosphere;
+use crate::parts;
 
 /**** Import C declarations to Rust ****/
 extern {
@@ -13,17 +14,22 @@ extern {
     pub fn belt_data_alloc() -> *mut BeltData;
     pub fn rope_data_alloc() -> *mut RopeData;
     pub fn part_free(part: *mut Part);
-    pub fn part_alloc_borders_and_reset(part: *mut Part) -> c_int;
+    pub fn part_init_rope_data_primary(part: *mut Part);
+    pub fn part_init_belt_data(part: *mut Part);
+    pub fn part_alloc_borders(part: *mut Part, length: u16);
+    pub fn part_calculate_border_normals(part: *mut Part);
+    pub fn part_set_size_and_pos_render(part: *mut Part);
     pub fn restore_parts_state_from_design();
     pub fn advance_parts();
     pub fn all_parts_set_prev_vars();
     pub fn insert_part_into_static_parts(part: *mut Part);
     pub fn insert_part_into_moving_parts(part: *mut Part);
     pub fn insert_part_into_parts_bin(part: *mut Part);
-    pub fn part_resize(part: *mut Part);
-    pub fn part_flip(part: *mut Part, flag: c_int);
-    pub fn part_density(part_type: c_int) -> u16;
     pub fn calculate_rope_sag(part: *const Part, rope_data: *const RopeData, time: c_int) -> i16;
+
+    pub fn stub_10a8_21cb(part: *mut Part, c: u8);
+    pub fn stub_10a8_2b6d(part: *mut Part, c: c_int);
+    pub fn stub_10a8_280a(part: *mut Part, c: c_int);
 
     pub static mut GRAVITY: u16;
     pub static mut AIR_PRESSURE: u16;
@@ -31,6 +37,8 @@ extern {
     pub static mut STATIC_PARTS_ROOT: Part;
     pub static mut MOVING_PARTS_ROOT: Part;
     pub static mut PARTS_BIN_ROOT: Part;
+
+    pub static mut RESIZE_GOPHER: u16;
 }
 
 #[derive(Clone)]
@@ -100,6 +108,13 @@ pub struct ByteVec {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
+pub struct SByteVec {
+    pub x: i8,
+    pub y: i8,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
 pub struct ShortVec {
     pub x: i16,
     pub y: i16,
@@ -115,6 +130,44 @@ pub struct BorderPoint {
 
 include!("./generated/structs.rs");
 
+use std::ops::{Deref, DerefMut};
+
+pub struct RopeDataRefMut<'a> {
+    ptr: &'a mut RopeData
+}
+
+impl<'a> Deref for RopeDataRefMut<'a> {
+    type Target = RopeData;
+
+    fn deref(&self) -> &RopeData {
+        self.ptr
+    }
+}
+
+impl<'a> DerefMut for RopeDataRefMut<'a> {
+    fn deref_mut(&mut self) -> &mut RopeData {
+        self.ptr
+    }
+}
+
+pub struct BeltDataRefMut<'a> {
+    ptr: &'a mut BeltData
+}
+
+impl<'a> Deref for BeltDataRefMut<'a> {
+    type Target = BeltData;
+
+    fn deref(&self) -> &BeltData {
+        self.ptr
+    }
+}
+
+impl<'a> DerefMut for BeltDataRefMut<'a> {
+    fn deref_mut(&mut self) -> &mut BeltData {
+        self.ptr
+    }
+}
+
 impl Part {
     pub fn new_zero() -> Self {
         unsafe { std::mem::zeroed() }
@@ -127,6 +180,88 @@ impl Part {
             } else {
                 std::slice::from_raw_parts(self.borders_data, size)
             }
+        }
+    }
+
+    pub fn bounce_part_mut(&mut self) -> Option<&mut Part> {
+        unsafe { self.bounce_part.as_mut() }
+    }
+
+    pub fn border_points_mut(&mut self) -> &mut [BorderPoint] {
+        unsafe {
+            let size = self.num_borders as usize;
+            if size == 0 || self.borders_data.is_null() {
+                std::slice::from_raw_parts_mut(std::ptr::NonNull::dangling().as_ptr(), 0)
+            } else {
+                std::slice::from_raw_parts_mut(self.borders_data, size)
+            }
+        }
+    }
+
+    // Allocates the borders to the part, and recalculates the normals
+    pub fn set_border(&mut self, points: &[(u8, u8)]) {
+        unsafe {
+            part_alloc_borders(self, points.len() as u16);
+
+            let b = self.border_points_mut();
+
+            for (i, &(x, y)) in points.iter().enumerate() {
+                b[i].x = x;
+                b[i].y = y;
+            }
+
+            part_calculate_border_normals(self);
+        }
+    }
+
+    /// Sets borders in an already-allocated buffer. Does NOT update border normals.
+    /// Known quirk for parts like Bob the Fish.
+    pub fn update_border_ignore_normals_quirk(&mut self, points: &[(u8, u8)]) {
+        unsafe {
+            if points.len() > self.num_borders as usize {
+                panic!("Cannot update borders");
+            }
+
+            self.num_borders = points.len() as u16;
+
+            let b = self.border_points_mut();
+
+            for (i, &(x, y)) in points.iter().enumerate() {
+                b[i].x = x;
+                b[i].y = y;
+            }
+        }
+    }
+
+    pub fn init_rope_data_primary(&mut self) {
+        unsafe {
+            part_init_rope_data_primary(self);
+        }
+    }
+
+    pub fn init_belt_data(&mut self) {
+        unsafe {
+            part_init_belt_data(self);
+        }
+    }
+
+    pub fn rope_mut(&mut self, rope_slot: usize) -> Option<RopeDataRefMut> {
+        if let Some(rope) = unsafe { self.rope_data[rope_slot].as_mut() } {
+            Some(RopeDataRefMut {
+                ptr: rope
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn belt_mut(&mut self) -> Option<BeltDataRefMut> {
+        if let Some(belt) = unsafe { self.belt_data.as_mut() } {
+            Some(BeltDataRefMut {
+                ptr: belt
+            })
+        } else {
+            None
         }
     }
 
@@ -369,41 +504,6 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
     return 0;
 }
 
-// TIMWIN: 1108:124d
-const BOB_THE_FISH_RENDER_IMAGES: &'static [&'static [(u8, u8, i8, i8)]] = &[
-    &[(3, 0, 0, 0), (3, 1, 10, 11), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 2, 15, 9), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 3, 26, 16), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 4, 31, 17), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 5, 26, 16), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 6, 10, 11), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 7, 7, 11), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 8, 6, 10), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 9, 7, 16), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 10, 8, 16), (3, 12, 10, 27)],
-    &[(3, 0, 0, 0), (3, 11, 6, 10), (3, 12, 10, 27)],
-    &[(3, 13, -16, 8)],
-    &[(3, 14, -19, 15)],
-    &[(3, 15, -25, 19)],
-    &[(3, 16, -28, 25), (3, 17, 5, 39)],
-    &[(3, 16, -28, 25), (3, 18, 5, 31)],
-    &[(3, 16, -28, 25), (3, 19, 3, 29)],
-    &[(3, 16, -28, 25), (3, 20, 5, 29)],
-    &[(3, 16, -28, 25), (3, 21, -5, 27)],
-    &[(3, 16, -28, 25), (3, 22, -5, 22)],
-    &[(3, 16, -28, 25), (3, 23, 1, 31)],
-    &[(3, 16, -28, 25), (3, 24, 5, 36)],
-    &[(3, 16, -28, 25), (3, 25, 5, 38)],
-];
-
-// Returns a tuple of: (goober, image, x, y)
-pub fn part_get_render_images(part_type: PartType, state1: i16) -> Option<&'static [(u8, u8, i8, i8)]> {
-    match part_type {
-        PartType::BobTheFish => BOB_THE_FISH_RENDER_IMAGES.get(state1 as usize).map(|x| *x),
-        _ => None
-    }
-}
-
 /// Partial from TIMWIN: 1090:0000
 /// Was pre-calculated in TIM each time the air pressure or gravity changed. Here we recalculate it each time.
 /// We can possibly memoize this call in the future if performance calls for it.
@@ -426,4 +526,159 @@ pub fn part_terminal_velocity(part_type: c_int) -> i16 {
         PartType::CannonBall => 0x3000,
         _ => atmosphere::calculate_terminal_velocity(unsafe { AIR_PRESSURE })
     }
+}
+
+#[no_mangle]
+pub fn part_density(part_type: c_int) -> u16 {
+    let t = PartType::from_u16(part_type as u16);
+    parts::get_def(t).density
+}
+
+#[no_mangle]
+pub fn part_mass(part_type: c_int) -> u16 {
+    let t = PartType::from_u16(part_type as u16);
+    parts::get_def(t).mass
+}
+
+#[no_mangle]
+pub fn part_bounciness(part_type: c_int) -> i16 {
+    let t = PartType::from_u16(part_type as u16);
+    parts::get_def(t).bounciness
+}
+
+#[no_mangle]
+pub fn part_friction(part_type: c_int) -> i16 {
+    let t = PartType::from_u16(part_type as u16);
+    parts::get_def(t).friction
+}
+
+#[no_mangle]
+pub fn part_order(part_type: c_int) -> u16 {
+    let t = PartType::from_u16(part_type as u16);
+    let list = parts::parts_bin_order();
+
+    list.iter().position(|&x| x == t).unwrap() as u16
+}
+
+#[no_mangle]
+pub fn part_data30_flags1(part_type: c_int) -> u16 {
+    let t = PartType::from_u16(part_type as u16);
+    parts::get_def(t).flags1
+}
+
+#[no_mangle]
+pub fn part_data30_flags3(part_type: c_int) -> u16 {
+    let t = PartType::from_u16(part_type as u16);
+    parts::get_def(t).flags3
+}
+
+#[no_mangle]
+pub fn part_data30_size_something2(part_type: c_int) -> ShortVec {
+    let t = PartType::from_u16(part_type as u16);
+    let (w, h) = parts::get_def(t).size_something2;
+    ShortVec { x: w as i16, y: h as i16 }
+}
+
+#[no_mangle]
+pub fn part_data30_size(part_type: c_int) -> ShortVec {
+    let t = PartType::from_u16(part_type as u16);
+    let (w, h) = parts::get_def(t).size;
+    ShortVec { x: w as i16, y: h as i16 }
+}
+
+#[no_mangle]
+pub fn part_data31_render_pos_offset(part_type: c_int, state1: u16, out: &mut SByteVec) -> c_int {
+    let t = PartType::from_u16(part_type as u16);
+    if let Some(offsets) = parts::get_def(t).render_pos_offsets {
+        let (x, y) = offsets[state1 as usize];
+        out.x = x;
+        out.y = y;
+        1
+    } else {
+        0
+    }
+}
+
+#[no_mangle]
+pub fn part_explicit_size(part_type: c_int, index: u16, out: &mut ShortVec) -> c_int {
+    let t = PartType::from_u16(part_type as u16);
+    if let Some(sizes) = parts::get_def(t).explicit_sizes {
+        let (w, h) = sizes[index as usize];
+        out.x = w;
+        out.y = h;
+        1
+    } else {
+        0
+    }
+}
+
+#[no_mangle]
+pub fn part_run(part: &mut Part) {
+    let t = PartType::from_u16(part.part_type as u16);
+    if let Some(run) = parts::get_def(t).run_fn {
+        run(part);
+    }
+}
+
+#[no_mangle]
+pub fn part_reset(part: &mut Part) {
+    let t = PartType::from_u16(part.part_type as u16);
+    if let Some(reset) = parts::get_def(t).reset_fn {
+        reset(part);
+    }
+}
+
+#[no_mangle]
+pub fn part_bounce(part_type: c_int, part: &mut Part) -> c_int {
+    let t = PartType::from_u16(part_type as u16);
+    if let Some(bounce) = parts::get_def(t).bounce_fn {
+        if bounce(part) {
+            1
+        } else {
+            0
+        }
+    } else {
+        // Default
+        1
+    }
+}
+
+#[no_mangle]
+pub fn part_flip(part: &mut Part, orientation: c_int) {
+    let t = PartType::from_u16(part.part_type as u16);
+    if let Some(flip) = parts::get_def(t).flip_fn {
+        flip(part, orientation as u16);
+    }
+}
+
+#[no_mangle]
+pub fn part_resize(part: &mut Part) {
+    let t = PartType::from_u16(part.part_type as u16);
+    if let Some(resize) = parts::get_def(t).resize_fn {
+        resize(part);
+    }
+}
+
+#[no_mangle]
+pub fn part_rope(part_type: c_int, p1: &mut Part, p2: &mut Part, rope_slot: c_int, flags: u16, p1_mass: i16, p1_force: i32) -> c_int {
+    let t = PartType::from_u16(part_type as u16);
+    if let Some(rope) = parts::get_def(t).rope_fn {
+        rope(p1, p2, rope_slot as u8, flags, p1_mass, p1_force) as c_int
+    } else {
+        // Default
+        0
+    }
+}
+
+#[no_mangle]
+pub fn part_create_func(part_type: c_int, part: &mut Part) -> c_int {
+    let t = PartType::from_u16(part_type as u16);
+    let create = parts::get_def(t).create_fn;
+
+    create(part);
+    if let Some(reset) = parts::get_def(t).reset_fn {
+        reset(part);
+    }
+
+    0
 }
