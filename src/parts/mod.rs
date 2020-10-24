@@ -1,3 +1,6 @@
+// For now...
+#![allow(unused_variables)]
+
 use std::os::raw::{c_int, c_char};
 use crate::tim_c::Part;
 
@@ -63,6 +66,38 @@ mod prelude {
         panic!("Unimplemented");
     }
 
+    // TIMWIN: 10a8:372e
+    pub fn other_belt_part(part: &Part) -> *mut Part {
+        if let Some(belt_data) = unsafe { part.belt_data.as_ref() } {
+            if belt_data.part1 as *const Part == part as *const Part {
+                belt_data.part2
+            } else {
+                belt_data.part1
+            }
+        } else {
+            std::ptr::null_mut::<Part>()
+        }
+    }
+
+    pub fn angle_to_signed(angle: u16) -> i16 {
+        // Really we're converting an unsigned number to a signed number as per two's complement.
+        if angle < 0x8000 {
+            angle as i16
+        } else {
+            (-((0x10000 - angle as u32) as i32)) as i16
+        }
+    }
+
+    #[test]
+    fn test_angle_to_signed() {
+        assert_eq!(angle_to_signed(0), 0);
+        assert_eq!(angle_to_signed(100), 100);
+        assert_eq!(angle_to_signed(0x7fff), 0x7fff);
+        assert_eq!(angle_to_signed(0x8000), -0x8000);
+        assert_eq!(angle_to_signed(0xfff0), -0x10);
+        assert_eq!(angle_to_signed(0xffff), -1);
+    }
+
     #[macro_export]
     macro_rules! bounce_c {
         ($c_fn: ident, $part: expr) => {
@@ -114,7 +149,7 @@ mod prelude {
 
 mod bowling_ball {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2832,
         mass: 200,
         bounciness: 128,
@@ -191,7 +226,7 @@ mod wall_common {
 mod brick_wall {
     use super::prelude::*;
     use super::wall_common::{create, reset, resize};
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 4153,
         mass: 1000,
         bounciness: 1024,
@@ -221,7 +256,7 @@ mod brick_wall {
 
 mod incline {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1510,
         mass: 1000,
         bounciness: 1024,
@@ -300,7 +335,7 @@ mod incline {
 
 mod teeter_totter {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1888,
         mass: 1000,
         bounciness: 1024,
@@ -399,7 +434,7 @@ mod teeter_totter {
 
 mod balloon {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 9,
         mass: 1,
         bounciness: 64,
@@ -464,7 +499,7 @@ mod balloon {
 
 mod conveyor {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 1024,
@@ -493,37 +528,117 @@ mod conveyor {
 
     // TIMWIN: 1078:03c2
     fn create(part: &mut Part) {
-        unimplemented();
+        part.flags2 |= 0x0080 | 0x0001;
+        part.state1 = 28;
+        part.original_state1 = 28;
+        part.state2 = 0;
+        part.original_state2 = 0;
+        part.belt_loc.x = 59;
+        part.belt_width = 14;
     }
 
     // TIMWIN: 1080:025c
     fn reset(part: &mut Part) {
-        // reset_c!(conveyor_reset, part);
-        unimplemented();
+        let x = part.size.x as u8;
+        let y = part.size.y as u8;
+        part.set_border(&[(0, 0), (x, 0), (x, y), (0, y)]);
     }
 
     // TIMWIN: 1080:0352
     fn run(part: &mut Part) {
-        // run_c!(conveyor_run, part);
-        unimplemented();
+        if part.state2 != 0 {
+            if let Some(other) = unsafe { other_belt_part(part).as_ref() } {
+                if other.part_type == PartType::Gear.to_u16() {
+                    if other.state1_prev1 == other.state1_prev2 {
+                        part.state2 = 0;
+                    }
+                }
+            }
+        }
+        if part.state2 != 0 {
+            // Global variable changes here in original game.
+            // Not sure if it's needed
+            // CONVEYOR_STATE = 2
+
+            if part.state1 == part.state1_prev1 {
+                tim_c::play_sound(1);
+            }
+            if part.state2 > 0 {
+                if (part.state1 + 1) % 7 == 0 {
+                    part.state1 -= 6;
+                } else {
+                    part.state1 += 1;
+                }
+            } else if part.state2 < 0 {
+                if part.state1 % 7 == 0 {
+                    part.state1 += 6;
+                } else {
+                    part.state1 -= 1;
+                }
+            }
+        }
     }
 
     // TIMWIN: 1080:02ac
     fn bounce(part: &mut Part) -> bool {
-        // bounce_c!(conveyor_bounce, part);
-        unimplemented();
+        let conveyor = unsafe { part.bounce_part.as_ref().unwrap() };
+        let border_index = part.bounce_border_index;
+        let bounce_angle = angle_to_signed(part.bounce_angle);
+
+        if border_index == 0 || (bounce_angle >= -2048 && bounce_angle <= 2048)  {
+            if part.part_type == PartType::Basketball.to_u16() {
+                println!("BOING: {} {}", bounce_angle, border_index);
+            }
+            if conveyor.state2 < 0 {
+                // This is a quirk.
+                // When subtracting from the velocities, the comparisons to cap the velocities are wrong.
+                part.vel_hi_precision.x -= 4096;
+                if part.vel_hi_precision.x < 4096 {
+                    part.vel_hi_precision.x = -4096;
+                }
+            } else if conveyor.state2 > 0 {
+                part.vel_hi_precision.x = std::cmp::min(4096, part.vel_hi_precision.x + 4096);
+            }
+        } else if border_index == 2 {
+            if conveyor.state2 < 0 {
+                part.vel_hi_precision.x = std::cmp::min(4096, part.vel_hi_precision.x + 4096);
+            } else if conveyor.state2 > 0 {
+                // This is a quirk.
+                // When subtracting from the velocities, the comparisons to cap the velocities are wrong.
+                part.vel_hi_precision.x -= 4096;
+                if part.vel_hi_precision.x < 4096 {
+                    part.vel_hi_precision.x = -4096;
+                }
+            }
+        }
+
+        true
     }
 
     // TIMWIN: 1080:0401
     fn resize(part: &mut Part) {
-        // resize_c!(conveyor_resize, part);
-        unimplemented();
+        part.size = part.size_something2;
+        let x = part.size.x as u8;
+        let points = part.border_points_mut();
+        points[1].x = x;
+        points[2].x = x;
+        let st = (part.size.x - 32) / 16;
+        part.state1 = st*7;
+        part.original_state1 = st*7;
+        part.belt_loc.x = match st {
+            0 => 9,
+            1 => 23,
+            2 => 38,
+            3 => 44,
+            4 => 59,
+            _ => unreachable!()
+        };
     }
 }
 
 mod mort_the_mouse_cage {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 1024,
@@ -552,31 +667,69 @@ mod mort_the_mouse_cage {
 
     // TIMWIN: 1078:0426
     fn create(part: &mut Part) {
-        unimplemented();
+        part.flags1 |= 0x0400;
+        part.flags2 |= 0x0800 | 0x0001;
+        part.belt_loc.x = 30;
+        part.belt_loc.y = 4;
+        part.belt_width = 12;
     }
 
     // TIMWIN: 1088:0df6
     fn reset(part: &mut Part) {
-        // reset_c!(mort_the_mouse_cage_reset, part);
-        unimplemented();
+        let x = part.size.x as u8;
+        let y = part.size.y as u8;
+        part.set_border(&[(0, 0), (x, 0), (x, y), (0, y)]);
     }
 
     // TIMWIN: 1088:0e6f
     fn run(part: &mut Part) {
-        // run_c!(mort_the_mouse_cage_run, part);
-        unimplemented();
+        if part.state2 == 0 {
+            unsafe { tim_c::search_for_interactions(part, 0x1000, -16, 16, 0, 0); }
+
+            for p in unsafe { part.interactions_iter() } {
+                let p = unsafe { p.as_ref().unwrap() };
+                if p.part_type == PartType::PokeyTheCat.to_u16() {
+                    make_it_go(part);
+                }
+            }
+        }
+
+        if let Some(other) = unsafe { other_belt_part(part).as_mut() } {
+            if other.flags2 & 0x0800 == 0 {
+                other.state2 = part.state2;
+            }
+        }
+
+        if part.state2 != 0 {
+            part.state1 ^= 1;
+            part.extra1 -= 1;
+            if part.extra1 == 0 {
+                part.state2 = 0;
+            }
+        }
     }
 
     // TIMWIN: 1088:0e46
     fn bounce(part: &mut Part) -> bool {
-        // bounce_c!(mort_the_mouse_cage_bounce, part);
-        unimplemented();
+        unsafe {
+            make_it_go(part.bounce_part.as_mut().unwrap());
+        }
+        true
     }
 
     // TIMWIN: 1088:0efb
     fn flip(part: &mut Part, _orientation: u16) {
-        // flip_c!(mort_the_mouse_cage_flip, part, _orientation);
-        unimplemented();
+        part.flags2 ^= F2_FLIP_HORZ;
+        if (part.flags2 & F2_FLIP_HORZ) == 0 {
+            part.belt_loc.x = 30;
+        } else {
+            part.belt_loc.x = 3;
+        }
+        unsafe {
+            tim_c::stub_10a8_280a(part, 3);
+            tim_c::stub_10a8_2b6d(part, 3);
+            tim_c::stub_10a8_21cb(part, 2);
+        }
     }
 
     // TIMWIN: 1088:0f4b
@@ -584,11 +737,7 @@ mod mort_the_mouse_cage {
         if cage.state2 == 0 {
             tim_c::play_sound(0x0d);
         }
-        if cage.flags2 & F2_FLIP_HORZ == 0 {
-            cage.state2 = 1;
-        } else {
-            cage.state2 = -1;
-        }
+        cage.state2 = if cage.flags2 & F2_FLIP_HORZ == 0 { 1 } else { -1 };
         cage.extra1 = 100;
     }
 
@@ -600,7 +749,7 @@ mod mort_the_mouse_cage {
 
 mod pulley {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 0,
@@ -640,7 +789,7 @@ mod pulley {
 
 mod belt {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 0,
@@ -675,7 +824,7 @@ mod belt {
 
 mod basketball {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1322,
         mass: 20,
         bounciness: 192,
@@ -715,7 +864,7 @@ mod basketball {
 
 mod rope {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1600,
         mass: 1000,
         bounciness: 0,
@@ -750,7 +899,7 @@ mod rope {
 
 mod cage {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 150,
         bounciness: 32,
@@ -779,25 +928,41 @@ mod cage {
 
     // TIMWIN: 1078:0592
     fn create(part: &mut Part) {
-        unimplemented();
+        part.flags1 |= 0x0020;
+        part.flags2 |= 0x0004;
+        part.rope_loc[0].x = 21;
+        part.rope_loc[0].y = 2;
     }
 
     // TIMWIN: 1048:17b6
     fn reset(part: &mut Part) {
-        // reset_c!(cage_reset, part);
-        unimplemented();
+        part.set_border(&[(0,24), (19,0), (25,0), (45,24), (45,63), (43,63), (43,26), (34,16), (11,16), (2,26), (2,63), (0,63)]);
     }
 
     // TIMWIN: 1048:1854
     fn rope(p1: &mut Part, p2: &mut Part, rope_slot: u8, flags: u16, p1_mass: i16, p1_force: i32) -> u8 {
-        // rope_c!(cage_rope, p1, p2, rope_slot, flags, p1_mass, p1_force);
-        unimplemented();
+        if flags == 1 {
+            p2.rope_mut(0).unwrap().rope_unknown += 1;
+            return 0;
+        } else if p1.part_type == PartType::TeeterTotter.to_u16() {
+            if p1_force < p2.force {
+                return 1;
+            }
+        } else if p1_force < p2.force*2 {
+            return 1;
+        }
+        if flags == 2 {
+            p2.pos.y -= 20;
+            p2.state2 += 1;
+            unsafe { tim_c::part_set_size_and_pos_render(p2); }
+        }
+        return 0;
     }
 }
 
 mod pokey_the_cat {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2000,
         mass: 120,
         bounciness: 0,
@@ -876,7 +1041,7 @@ mod pokey_the_cat {
 
 mod jack_in_the_box {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 1024,
@@ -953,7 +1118,7 @@ mod jack_in_the_box {
 
 mod gear {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 1024,
@@ -982,31 +1147,203 @@ mod gear {
 
     // TIMWIN: 1078:068c
     fn create(part: &mut Part) {
-        unimplemented();
+        part.flags2 |= 0x0001;
+        part.belt_loc.x = 13;
+        part.belt_loc.y = 13;
+        part.belt_width = 8;
     }
 
     // TIMWIN: 1078:177b
     fn reset(part: &mut Part) {
-        // reset_c!(gear_reset, part);
-        unimplemented();
+        // Same as bowling ball and basketball's border
+        part.set_border(&[(8, 0), (23, 0), (31, 8), (31, 23), (23, 31), (8, 31), (0, 23), (0, 8)]);
+
+        part.links_to[0] = std::ptr::null_mut::<Part>();
+        part.links_to[1] = std::ptr::null_mut::<Part>();
+        part.links_to_design[0] = std::ptr::null_mut::<Part>();
+        part.links_to_design[1] = std::ptr::null_mut::<Part>();
+
+        // Link this gear up with adjacent gears in the playfield
+        for ptr in unsafe { tim_c::static_parts_iter_mut() } {
+            if ptr == part { continue; }
+            let curpart = unsafe { ptr.as_mut().unwrap() };
+            if curpart.part_type != PartType::Gear.to_u16() { continue; }
+
+            if part.original_pos_y == curpart.original_pos_y {
+                if part.original_pos_x-curpart.original_pos_x == 32 {
+                    part.links_to[0] = curpart;
+                } else if part.original_pos_x-curpart.original_pos_x == -32 {
+                    part.links_to[1] = curpart;
+                }
+            } else {
+                if part.original_pos_x == curpart.original_pos_x {
+                    // The gear uses link_to_design as the above/below links.
+                    // This appears to be a hacky workaround from the original game.
+
+                    if part.original_pos_y-curpart.original_pos_y == 32 {
+                        part.links_to_design[0] = curpart;
+                    } else if part.original_pos_y-curpart.original_pos_y == -32 {
+                        part.links_to_design[1] = curpart;
+                    }
+                }
+            }
+        }
+    }
+
+    // TIMWIN: 1078:187e
+    fn helper1(part: &mut Part, otherpart: *mut Part, n: u16, val: u16) -> u16 {
+        if otherpart.is_null() { return val; }
+        let otherpart = unsafe { otherpart.as_mut().unwrap() };
+
+        let mut val = val;
+
+        if otherpart.state2 == 0 {
+            otherpart.state2 = if n == 1 {
+                part.state2
+            } else {
+                -part.state2
+            };
+        } else if otherpart.state2 != part.state2 && n == 1 {
+            val = 1;
+        } else if otherpart.state2 == part.state2 && n == 2 {
+            val = 1;
+        }
+
+        if otherpart.part_type == PartType::Gear.to_u16() && (otherpart.flags2 & 0x0040) == 0 {
+            otherpart.flags2 |= 0x0040;
+
+            let mut h = |p: &mut Part, linked: *mut Part, new_n: u16, val: u16| -> u16 {
+                if linked.is_null() { return val; }
+                let linked = unsafe { linked.as_mut().unwrap() };
+                if (linked.flags2 & 0x0800) != 0 { return val; }
+    
+                helper1(p, linked, new_n, val)
+            };
+
+            val = h(otherpart, otherpart.links_to[0], 2, val);
+            val = h(otherpart, otherpart.links_to[1], 2, val);
+            val = h(otherpart, otherpart.links_to_design[0], 2, val);
+            val = h(otherpart, otherpart.links_to_design[1], 2, val);
+            val = h(otherpart, other_belt_part(otherpart), 1, val);
+        }
+
+        val
+    }
+
+    // TIMWIN: 1078:1950
+    fn helper2(part: &mut Part, val: u16) {
+        part.state1 += part.state2;
+        if part.state1 == -1 {
+            part.state1 = 3;
+        } else if part.state1 == 4 {
+            part.state1 = 0;
+        }
+        part.state2 = 0;
+
+        let mut h = |linked: *mut Part| {
+            if linked.is_null() { return; }
+            let linked = unsafe { linked.as_mut().unwrap() };
+            if linked.state2 == 0 { return; }
+            if (linked.flags2 & 0x0800) != 0 { return; }
+
+            if val != 0 {
+                linked.state2 = 0;
+            }
+            if linked.part_type == PartType::Gear.to_u16() {
+                helper2(linked, val);
+            }
+        };
+
+        h(part.links_to[0]);
+        h(part.links_to[1]);
+        h(part.links_to_design[0]);
+        h(part.links_to_design[1]);
+        h(other_belt_part(part));
     }
 
     // TIMWIN: 1078:1810
     fn run(part: &mut Part) {
-        // run_c!(gear_run, part);
-        unimplemented();
+        if part.state2 != 0 {
+            part.flags2 |= 0x0040;
+            let mut val = 0;
+            val = helper1(part, part.links_to[0], 2, val);
+            val = helper1(part, part.links_to[1], 2, val);
+            val = helper1(part, part.links_to_design[0], 2, val);
+            val = helper1(part, part.links_to_design[1], 2, val);
+            if val != 0 {
+                part.state2 = 0;
+            }
+            helper2(part, val);
+        }
     }
 
     // TIMWIN: 1078:1668
     fn bounce(part: &mut Part) -> bool {
-        // bounce_c!(gear_bounce, part);
-        unimplemented();
+        let gear = unsafe { part.bounce_part.as_mut().unwrap() };
+
+        let mut state_delta = gear.state1 - gear.state1_prev1;
+
+        if state_delta < -1 {
+            state_delta = 1;
+        } else if state_delta > 1 {
+            state_delta = -1;
+        }
+
+        if state_delta != 0 {
+            if part.part_type == PartType::Balloon.to_u16() {
+                // Pop the balloon
+                part.state2 = 1;
+                return true;
+            }
+
+            let mode = if state_delta < 1 {
+                (part.bounce_border_index + 4) % 8
+            } else {
+                part.bounce_border_index
+            };
+
+            let a: &[(u8, i16)] = match mode {
+                0 => &[(1, 4096)],
+                1 => &[(1, 2048), (2, 2048)],
+                2 => &[(2, 4096)],
+                3 => &[(3, 2048), (2, 2048)],
+                4 => &[(3, 4096)],
+                5 => &[(3, 2048), (4, 2048)],
+                6 => &[(4, 4096)],
+                7 => &[(1, 2048), (4, 2048)],
+                _ => unreachable!()
+            };
+
+            for &(method, speed) in a {
+                match method {
+                    1 => part.vel_hi_precision.x = i16::min( speed, part.vel_hi_precision.x + speed),
+                    2 => part.vel_hi_precision.y = i16::min( speed, part.vel_hi_precision.y + speed),
+
+                    // This is a quirk.
+                    // When subtracting from the velocities, the comparisons to cap the velocities are wrong.
+                    3 => {
+                        part.vel_hi_precision.x -= speed;
+                        if part.vel_hi_precision.x < speed {
+                            part.vel_hi_precision.x = -speed;
+                        }
+                    },
+                    4 => {
+                        part.vel_hi_precision.y -= speed;
+                        if part.vel_hi_precision.y < speed {
+                            part.vel_hi_precision.y = -speed;
+                        }
+                    },
+                    _ => unreachable!()
+                }
+            }
+        }
+        true
     }
 }
 
 mod bob_the_fish {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2000,
         mass: 1000,
         bounciness: 128,
@@ -1127,7 +1464,7 @@ mod bob_the_fish {
 
 mod bellows {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 128,
@@ -1190,7 +1527,7 @@ mod bellows {
 
 mod bucket {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 100,
         bounciness: 32,
@@ -1219,31 +1556,44 @@ mod bucket {
 
     // TIMWIN: 1078:0770
     fn create(part: &mut Part) {
-        unimplemented();
+        part.flags1 |= 0x0020;
+        part.flags2 |= 0x0004;
+        part.rope_loc[0].x = 18;
+        part.rope_loc[0].y = 0;
     }
 
     // TIMWIN: 1048:0dc1
     fn reset(part: &mut Part) {
-        // reset_c!(bucket_reset, part);
-        unimplemented();
+        part.set_border(&[(0,19), (10,40), (25,40), (36,20), (27,47), (8,47)]);
     }
 
     // TIMWIN: 1048:0d66
     fn bounce(part: &mut Part) -> bool {
-        // bounce_c!(bucket_bounce, part);
-        unimplemented();
+        let bucket = part.bounce_part().unwrap();
+        let part_mid_x = part.pos_prev1.x + part.size.x/2;
+        !(part.vel_hi_precision.y > 0 && part_mid_x > bucket.pos_prev1.x + 4 && part_mid_x < bucket.pos_prev1.x + 32)
     }
 
     // TIMWIN: 1048:0e23
     fn rope(p1: &mut Part, p2: &mut Part, rope_slot: u8, flags: u16, p1_mass: i16, p1_force: i32) -> u8 {
-        // rope_c!(bucket_rope, p1, p2, rope_slot, flags, p1_mass, p1_force);
-        unimplemented();
+        if flags == 1 {
+            p2.rope_mut(0).unwrap().rope_unknown += 1;
+            return 0;
+        }
+        if p1.part_type == PartType::TeeterTotter.to_u16() {
+            if p1_force < p2.force {
+                return 1;
+            }
+        } else if p1_force < p2.force*2 {
+            return 1;
+        }
+        return 0;
     }
 }
 
 mod cannon {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 14726,
         mass: 1000,
         bounciness: 192,
@@ -1313,7 +1663,7 @@ mod cannon {
 
 mod dynamite {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1132,
         mass: 90,
         bounciness: 64,
@@ -1383,7 +1733,7 @@ mod dynamite {
 
 mod gun_bullet {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 0,
         mass: 20000,
         bounciness: 0,
@@ -1438,7 +1788,7 @@ mod gun_bullet {
 
 mod light_switch_outlet {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 128,
@@ -1508,7 +1858,7 @@ mod light_switch_outlet {
 
 mod dynamite_with_plunger {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 128,
@@ -1581,7 +1931,7 @@ mod dynamite_with_plunger {
 
 mod eye_hook {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 128,
@@ -1637,7 +1987,7 @@ mod eye_hook {
 
 mod fan {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 1024,
@@ -1697,7 +2047,7 @@ mod fan {
 
 mod flashlight {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 128,
@@ -1758,7 +2108,7 @@ mod flashlight {
 
 mod generator {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 128,
@@ -1832,7 +2182,7 @@ mod generator {
 
 mod gun {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 192,
@@ -1903,7 +2253,7 @@ mod gun {
 
 mod baseball {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2000,
         mass: 9,
         bounciness: 64,
@@ -1943,7 +2293,7 @@ mod baseball {
 
 mod lightbulb {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1300,
         mass: 1000,
         bounciness: 128,
@@ -2017,7 +2367,7 @@ mod lightbulb {
 
 mod magnifying_glass {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 128,
@@ -2070,7 +2420,7 @@ mod magnifying_glass {
 
 mod kelly_the_monkey {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 128,
@@ -2151,7 +2501,7 @@ mod kelly_the_monkey {
 
 mod jack_o_lantern {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2400,
         mass: 100,
         bounciness: 64,
@@ -2191,7 +2541,7 @@ mod jack_o_lantern {
 
 mod heart_balloon {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 11,
         mass: 4,
         bounciness: 128,
@@ -2241,7 +2591,7 @@ mod heart_balloon {
 
 mod christmas_tree {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 128,
@@ -2281,7 +2631,7 @@ mod christmas_tree {
 
 mod boxing_glove {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 3776,
         mass: 1000,
         bounciness: 128,
@@ -2342,7 +2692,7 @@ mod boxing_glove {
 
 mod rocket {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 18000,
         mass: 1800,
         bounciness: 128,
@@ -2404,7 +2754,7 @@ mod rocket {
 
 mod scissors {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 128,
@@ -2470,7 +2820,7 @@ mod scissors {
 
 mod solar_panels {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 128,
@@ -2524,7 +2874,7 @@ mod solar_panels {
 
 mod trampoline {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 128,
@@ -2563,31 +2913,76 @@ mod trampoline {
 
     // TIMWIN: 1078:0d6e
     fn create(part: &mut Part) {
-        unimplemented();
+        part.flags2 |= 0x1000;
     }
 
     // TIMWIN: 10d0:0a00
     fn reset(part: &mut Part) {
-        // reset_c!(trampoline_reset, part);
-        unimplemented();
+        part.set_border(&[(0,11), (47,11), (47,27), (0,27)]);
     }
 
     // TIMWIN: 10d0:0a4e
     fn run(part: &mut Part) {
-        // run_c!(trampoline_run, part);
-        unimplemented();
+        if part.state2 != 0 {
+            part.state1 += 1;
+            if part.state1 == 3 {
+                tim_c::play_sound(3);
+            }
+            if part.state1 == 5 {
+                part.state1 = 0;
+                part.state2 = 0;
+            }
+            unsafe { tim_c::part_set_size_and_pos_render(part) };
+        }
     }
 
     // TIMWIN: 10d0:0900
     fn bounce(part: &mut Part) -> bool {
-        // bounce_c!(trampoline_bounce, part);
-        unimplemented();
+        let trampoline = unsafe { part.bounce_part.as_mut().unwrap() };
+        if part.bounce_border_index != 0 {
+            return true;
+        }
+        
+        let is_mel_schlemming = part.part_type == PartType::MelSchlemming.to_u16();
+
+        let trampoline_center_x = trampoline.pos.x + trampoline.size.x/2;
+
+        let rel_x = if is_mel_schlemming {
+            part.pos.x + part.size_something2.x/2 - trampoline_center_x
+        } else {
+            part.pos.x + part.size.x/2 - trampoline_center_x
+        };
+
+        if rel_x > -15 && rel_x < 15 {
+            trampoline.state2 = 1;
+            if part.vel_hi_precision.x.abs() >= 1024 {
+                part.vel_hi_precision.x /= 2;
+            }
+            part.bounce_part = std::ptr::null_mut();
+            part.flags1 &= !(0x0001);
+            part.pos_y_hi_precision = (part.pos.y as i32) * 512;
+            if trampoline.state1 == 3 {
+                part.vel_hi_precision.y = -part.vel_hi_precision.y.abs() - 1024;
+                unsafe { tim_c::part_clamp_to_terminal_velocity(part); }
+            }
+
+            false
+        } else {
+            if is_mel_schlemming {
+                part.vel_hi_precision.y = 0;
+                if part.state1 > 5 && part.state1 < 9 {
+                    part.state1 = 9;
+                }
+                unsafe { tim_c::part_set_size_and_pos_render(part); }
+            }
+            true
+        }
     }
 }
 
 mod windmill {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 128,
@@ -2642,7 +3037,7 @@ mod windmill {
 
 mod explosion {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 0,
         mass: 1,
         bounciness: 256,
@@ -2685,7 +3080,7 @@ mod explosion {
 
 mod mort_the_mouse {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2000,
         mass: 1,
         bounciness: 0,
@@ -2746,7 +3141,7 @@ mod mort_the_mouse {
 
 mod cannon_ball {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 21428,
         mass: 28000,
         bounciness: 32,
@@ -2787,7 +3182,7 @@ mod cannon_ball {
 
 mod tennis_ball {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1322,
         mass: 5,
         bounciness: 192,
@@ -2827,7 +3222,7 @@ mod tennis_ball {
 
 mod candle {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2000,
         mass: 12,
         bounciness: 128,
@@ -2886,7 +3281,7 @@ mod candle {
 mod pipe_straight {
     use super::prelude::*;
     use super::wall_common::{create, reset, resize};
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 1024,
@@ -2916,7 +3311,7 @@ mod pipe_straight {
 
 mod pipe_curved {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 1024,
@@ -2964,7 +3359,7 @@ mod pipe_curved {
 mod wood_wall {
     use super::prelude::*;
     use super::wall_common::{create, reset, resize};
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 1024,
@@ -2994,7 +3389,7 @@ mod wood_wall {
 
 mod rope_severed_end {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1600,
         mass: 1000,
         bounciness: 0,
@@ -3031,7 +3426,7 @@ mod rope_severed_end {
 
 mod electric_engine {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 1024,
@@ -3084,7 +3479,7 @@ mod electric_engine {
 
 mod vacuum {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 1024,
@@ -3157,7 +3552,7 @@ mod vacuum {
 
 mod cheese {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1500,
         mass: 40,
         bounciness: 64,
@@ -3198,7 +3593,7 @@ mod cheese {
 
 mod nail {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 20,
         bounciness: 1024,
@@ -3251,7 +3646,7 @@ mod nail {
 
 mod mel_schlemming {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2400,
         mass: 40,
         bounciness: 128,
@@ -3314,7 +3709,7 @@ mod mel_schlemming {
 
 mod title_the_even_more {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 100,
         mass: 140,
         bounciness: 64,
@@ -3364,7 +3759,7 @@ mod title_the_even_more {
 
 mod title_incredible_machine {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 100,
         mass: 140,
         bounciness: 128,
@@ -3405,7 +3800,7 @@ mod title_incredible_machine {
 
 mod title_credits {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 100,
         mass: 140,
         bounciness: 128,
@@ -3467,7 +3862,7 @@ mod title_credits {
 
 mod mels_house {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 4000,
         bounciness: 1024,
@@ -3522,7 +3917,7 @@ mod mels_house {
 
 mod super_ball {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 1800,
         mass: 14,
         bounciness: 512,
@@ -3564,7 +3959,7 @@ mod super_ball {
 mod dirt_wall {
     use super::prelude::*;
     use super::wall_common::{create, reset, resize};
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 7552,
         mass: 1000,
         bounciness: 1024,
@@ -3594,7 +3989,7 @@ mod dirt_wall {
 
 mod ernie_the_alligator {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2400,
         mass: 40,
         bounciness: 1024,
@@ -3673,7 +4068,7 @@ mod ernie_the_alligator {
 
 mod teapot {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2400,
         mass: 40,
         bounciness: 64,
@@ -3743,7 +4138,7 @@ mod teapot {
 
 mod eightball {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2400,
         mass: 40,
         bounciness: 256,
@@ -3784,7 +4179,7 @@ mod eightball {
 
 mod pinball_bumper {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2400,
         mass: 40,
         bounciness: 256,
@@ -3837,7 +4232,7 @@ mod pinball_bumper {
 
 mod lucky_clover {
     use super::prelude::*;
-    pub const def: PartDef = PartDef {
+    pub const DEF: PartDef = PartDef {
         density: 2000,
         mass: 800,
         bounciness: 128,
@@ -3955,74 +4350,73 @@ pub fn parts_bin_order() -> &'static [PartType] {
 
 pub fn get_def(part_type: PartType) -> &'static PartDef {
     use crate::part::PartType::*;
-    use prelude::*;
 
     match part_type {
-        BowlingBall            => &bowling_ball::def,
-        BrickWall              => &brick_wall::def,
-        Incline                => &incline::def,
-        TeeterTotter           => &teeter_totter::def,
-        Balloon                => &balloon::def,
-        Conveyor               => &conveyor::def,
-        MortTheMouseCage       => &mort_the_mouse_cage::def,
-        Pulley                 => &pulley::def,
-        Belt                   => &belt::def,
-        Basketball             => &basketball::def,
-        Rope                   => &rope::def,
-        Cage                   => &cage::def,
-        PokeyTheCat            => &pokey_the_cat::def,
-        JackInTheBox           => &jack_in_the_box::def,
-        Gear                   => &gear::def,
-        BobTheFish             => &bob_the_fish::def,
-        Bellows                => &bellows::def,
-        Bucket                 => &bucket::def,
-        Cannon                 => &cannon::def,
-        Dynamite               => &dynamite::def,
-        GunBullet              => &gun_bullet::def,
-        LightSwitchOutlet      => &light_switch_outlet::def,
-        DynamiteWithPlunger    => &dynamite_with_plunger::def,
-        EyeHook                => &eye_hook::def,
-        Fan                    => &fan::def,
-        Flashlight             => &flashlight::def,
-        Generator              => &generator::def,
-        Gun                    => &gun::def,
-        Baseball               => &baseball::def,
-        Lightbulb              => &lightbulb::def,
-        MagnifyingGlass        => &magnifying_glass::def,
-        KellyTheMonkey         => &kelly_the_monkey::def,
-        JackOLantern           => &jack_o_lantern::def,
-        HeartBalloon           => &heart_balloon::def,
-        ChristmasTree          => &christmas_tree::def,
-        BoxingGlove            => &boxing_glove::def,
-        Rocket                 => &rocket::def,
-        Scissors               => &scissors::def,
-        SolarPanels            => &solar_panels::def,
-        Trampoline             => &trampoline::def,
-        Windmill               => &windmill::def,
-        Explosion              => &explosion::def,
-        MortTheMouse           => &mort_the_mouse::def,
-        CannonBall             => &cannon_ball::def,
-        TennisBall             => &tennis_ball::def,
-        Candle                 => &candle::def,
-        PipeStraight           => &pipe_straight::def,
-        PipeCurved             => &pipe_curved::def,
-        WoodWall               => &wood_wall::def,
-        RopeSeveredEnd         => &rope_severed_end::def,
-        ElectricEngine         => &electric_engine::def,
-        Vacuum                 => &vacuum::def,
-        Cheese                 => &cheese::def,
-        Nail                   => &nail::def,
-        MelSchlemming          => &mel_schlemming::def,
-        TitleTheEvenMore       => &title_the_even_more::def,
-        TitleIncredibleMachine => &title_incredible_machine::def,
-        TitleCredits           => &title_credits::def,
-        MelsHouse              => &mels_house::def,
-        SuperBall              => &super_ball::def,
-        DirtWall               => &dirt_wall::def,
-        ErnieTheAlligator      => &ernie_the_alligator::def,
-        Teapot                 => &teapot::def,
-        Eightball              => &eightball::def,
-        PinballBumper          => &pinball_bumper::def,
-        LuckyClover            => &lucky_clover::def,
+        BowlingBall            => &bowling_ball::DEF,
+        BrickWall              => &brick_wall::DEF,
+        Incline                => &incline::DEF,
+        TeeterTotter           => &teeter_totter::DEF,
+        Balloon                => &balloon::DEF,
+        Conveyor               => &conveyor::DEF,
+        MortTheMouseCage       => &mort_the_mouse_cage::DEF,
+        Pulley                 => &pulley::DEF,
+        Belt                   => &belt::DEF,
+        Basketball             => &basketball::DEF,
+        Rope                   => &rope::DEF,
+        Cage                   => &cage::DEF,
+        PokeyTheCat            => &pokey_the_cat::DEF,
+        JackInTheBox           => &jack_in_the_box::DEF,
+        Gear                   => &gear::DEF,
+        BobTheFish             => &bob_the_fish::DEF,
+        Bellows                => &bellows::DEF,
+        Bucket                 => &bucket::DEF,
+        Cannon                 => &cannon::DEF,
+        Dynamite               => &dynamite::DEF,
+        GunBullet              => &gun_bullet::DEF,
+        LightSwitchOutlet      => &light_switch_outlet::DEF,
+        DynamiteWithPlunger    => &dynamite_with_plunger::DEF,
+        EyeHook                => &eye_hook::DEF,
+        Fan                    => &fan::DEF,
+        Flashlight             => &flashlight::DEF,
+        Generator              => &generator::DEF,
+        Gun                    => &gun::DEF,
+        Baseball               => &baseball::DEF,
+        Lightbulb              => &lightbulb::DEF,
+        MagnifyingGlass        => &magnifying_glass::DEF,
+        KellyTheMonkey         => &kelly_the_monkey::DEF,
+        JackOLantern           => &jack_o_lantern::DEF,
+        HeartBalloon           => &heart_balloon::DEF,
+        ChristmasTree          => &christmas_tree::DEF,
+        BoxingGlove            => &boxing_glove::DEF,
+        Rocket                 => &rocket::DEF,
+        Scissors               => &scissors::DEF,
+        SolarPanels            => &solar_panels::DEF,
+        Trampoline             => &trampoline::DEF,
+        Windmill               => &windmill::DEF,
+        Explosion              => &explosion::DEF,
+        MortTheMouse           => &mort_the_mouse::DEF,
+        CannonBall             => &cannon_ball::DEF,
+        TennisBall             => &tennis_ball::DEF,
+        Candle                 => &candle::DEF,
+        PipeStraight           => &pipe_straight::DEF,
+        PipeCurved             => &pipe_curved::DEF,
+        WoodWall               => &wood_wall::DEF,
+        RopeSeveredEnd         => &rope_severed_end::DEF,
+        ElectricEngine         => &electric_engine::DEF,
+        Vacuum                 => &vacuum::DEF,
+        Cheese                 => &cheese::DEF,
+        Nail                   => &nail::DEF,
+        MelSchlemming          => &mel_schlemming::DEF,
+        TitleTheEvenMore       => &title_the_even_more::DEF,
+        TitleIncredibleMachine => &title_incredible_machine::DEF,
+        TitleCredits           => &title_credits::DEF,
+        MelsHouse              => &mels_house::DEF,
+        SuperBall              => &super_ball::DEF,
+        DirtWall               => &dirt_wall::DEF,
+        ErnieTheAlligator      => &ernie_the_alligator::DEF,
+        Teapot                 => &teapot::DEF,
+        Eightball              => &eightball::DEF,
+        PinballBumper          => &pinball_bumper::DEF,
+        LuckyClover            => &lucky_clover::DEF,
     }
 }

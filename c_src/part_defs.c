@@ -157,7 +157,8 @@ enum RopeFlags {
 };
 */
 
-/* TIMWIN: 10a8:376e */
+/* TIMWIN: 10a8:376e
+   Note: I double-checked this for accuracy */
 u16 rope_calculate_flags(struct RopeData *rope, int param_2, int param_3) {
     struct Part *local14;
     byte bvar1, bvar2;
@@ -596,41 +597,33 @@ int balloon_rope(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16
 }
 
 /* TIMWIN: 1090:1094 */
-void stub_1090_1094(struct Part *part, enum GetPartsFlags param2, s16 param3, s16 param4, s16 param5, s16 param6) {
+void search_for_interactions(struct Part *part, enum GetPartsFlags choice, s16 search_x_min, s16 search_x_max, s16 search_y_min, s16 search_y_max) {
     part->interactions = 0;
 
-    for (struct Part *curpart = get_first_part(param2); curpart != 0; curpart = next_part_or_fallback(curpart, param2 & CHOOSE_MOVING_PART)) {
+    for (struct Part *curpart = get_first_part(choice); curpart != 0; curpart = next_part_or_fallback(curpart, choice & CHOOSE_MOVING_PART)) {
         if (part == curpart) continue;
         if (ANY_FLAGS(curpart->flags2, F2_DISAPPEARED)) continue;
 
         s16 somex = curpart->pos.x + curpart->size.x - part->pos.x;
 
-        if (somex >= param3) {
+        if (somex >= search_x_min) {
             s16 field_0x7a = somex >= 0 ? -1 : somex;
             s16 x = curpart->pos.x - (part->pos.x + part->size.x);
-            if (x <= param4) {
-                s16 tmp1 = x <= 0 ? 1 : x;
-
-                x = abs(x);
-                somex = abs(somex);
-                if (x < somex) {
-                    field_0x7a = tmp1;
+            if (x <= search_x_max) {
+                if (abs(x) < abs(somex)) {
+                    field_0x7a = x <= 0 ? 1 : x;
                 }
-                x = curpart->pos.y + curpart->size.y - part->pos.y;
-                if (x >= param5) {
-                    s16 field_0x7c = x >= 0 ? -1 : x;
+                s16 somey = curpart->pos.y + curpart->size.y - part->pos.y;
+                if (somey >= search_y_min) {
+                    s16 field_0x7c = somey >= 0 ? -1 : somey;
 
                     s16 y = curpart->pos.y - (part->pos.y + part->size.y);
-                    if (y <= param6) {
-                        tmp1 = y <= 0 ? 1 : y;
-
-                        x = abs(x);
-                        y = abs(y);
-
-                        if (y < x) {
-                            field_0x7c = tmp1;
+                    if (y <= search_y_max) {
+                        if (abs(y) < abs(somey)) {
+                            field_0x7c = y <= 0 ? 1 : y;
                         }
 
+                        // Prepare curpart to part->interactions linked list.
                         curpart->interactions = part->interactions;
                         part->interactions = curpart;
                         curpart->field_0x7A = field_0x7a;
@@ -689,9 +682,9 @@ void pokey_the_cat_run(struct Part *part) {
 
                 if (part->state1 == 0 || part->state1 > 7) {
                     if (NO_FLAGS(part->flags2, F2_FLIP_HORZ)) {
-                        stub_1090_1094(part, 0x3000, -240, 0, 0, 0);
+                        search_for_interactions(part, CHOOSE_STATIC_OR_ELSE_MOVING_PART, -240, 0, 0, 0);
                     } else {
-                        stub_1090_1094(part, 0x3000, 0, 240, 0, 0);
+                        search_for_interactions(part, CHOOSE_STATIC_OR_ELSE_MOVING_PART, 0, 240, 0, 0);
                     }
 
                     EACH_INTERACION(part, curpart) {
@@ -747,6 +740,7 @@ void pokey_the_cat_run(struct Part *part) {
 
     } else {
         if (ANY_FLAGS(part->flags1, 0x0002)) {
+            // Pokey's touching a surface. Put Pokey upright again
             part->flags2 &= ~(F2_FLIP_VERT);
             part->state1 = 0;
         }

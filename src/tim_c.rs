@@ -19,6 +19,7 @@ extern {
     pub fn part_alloc_borders(part: *mut Part, length: u16);
     pub fn part_calculate_border_normals(part: *mut Part);
     pub fn part_set_size_and_pos_render(part: *mut Part);
+    pub fn part_clamp_to_terminal_velocity(part: *mut Part);
     pub fn restore_parts_state_from_design();
     pub fn advance_parts();
     pub fn all_parts_set_prev_vars();
@@ -30,6 +31,7 @@ extern {
     pub fn stub_10a8_21cb(part: *mut Part, c: u8);
     pub fn stub_10a8_2b6d(part: *mut Part, c: c_int);
     pub fn stub_10a8_280a(part: *mut Part, c: c_int);
+    pub fn search_for_interactions(part: *mut Part, choice: c_int, search_x_min: i16, search_x_max: i16, search_y_min: i16, search_y_max: i16);
 
     pub static mut GRAVITY: u16;
     pub static mut AIR_PRESSURE: u16;
@@ -80,6 +82,74 @@ pub unsafe fn static_parts_iter<'a>() -> PartsIterator<'a> {
 /// Unsafe because the parts could change during iteration.
 pub unsafe fn moving_parts_iter<'a>() -> PartsIterator<'a> {
     PartsIterator::new(MOVING_PARTS_ROOT.next)
+}
+
+#[derive(Clone)]
+pub struct PartsIteratorMut<'a> {
+    cur: *mut Part,
+    _phantom: std::marker::PhantomData<&'a mut Part>
+}
+impl<'a> PartsIteratorMut<'a> {
+    /// Initializes the iterator with a pointer to the first Part.
+    /// Unsafe because 1) the pointer could be invalid, and 2) the parts could change during iteration.
+    pub unsafe fn new(ptr: *mut Part) -> Self {
+        PartsIteratorMut {
+            cur: ptr,
+            _phantom: std::marker::PhantomData
+        }
+    }
+}
+impl<'a> Iterator for PartsIteratorMut<'a> {
+    type Item = *mut Part;
+
+    fn next(&mut self) -> Option<*mut Part> {
+        let ptr = self.cur;
+        if let Some(part) = unsafe { self.cur.as_ref() } {
+            self.cur = part.next;
+            Some(ptr)
+        } else {
+            None
+        }
+    }
+}
+
+/// Returns an iterator of static parts.
+/// Unsafe because the parts could change during iteration.
+pub unsafe fn static_parts_iter_mut<'a>() -> PartsIteratorMut<'a> {
+    PartsIteratorMut::new(STATIC_PARTS_ROOT.next)
+}
+
+/// Returns an iterator of moving parts.
+/// Unsafe because the parts could change during iteration.
+pub unsafe fn moving_parts_iter_mut<'a>() -> PartsIteratorMut<'a> {
+    PartsIteratorMut::new(MOVING_PARTS_ROOT.next)
+}
+
+#[derive(Clone)]
+pub struct PartInteractionsIteratorMut {
+    cur: *mut Part
+}
+impl<'a> PartInteractionsIteratorMut {
+    /// Initializes the iterator with a pointer to the first Part.
+    /// Unsafe because 1) the pointer could be invalid, and 2) the parts could change during iteration.
+    pub unsafe fn new(ptr: *mut Part) -> Self {
+        PartInteractionsIteratorMut {
+            cur: ptr
+        }
+    }
+}
+impl Iterator for PartInteractionsIteratorMut {
+    type Item = *mut Part;
+
+    fn next(&mut self) -> Option<*mut Part> {
+        let ptr = self.cur;
+        if let Some(part) = unsafe { self.cur.as_ref() } {
+            self.cur = part.interactions;
+            Some(ptr)
+        } else {
+            None
+        }
+    }
 }
 
 pub fn print_parts() {
@@ -183,6 +253,10 @@ impl Part {
         }
     }
 
+    pub fn bounce_part(&self) -> Option<&Part> {
+        unsafe { self.bounce_part.as_ref() }
+    }
+
     pub fn bounce_part_mut(&mut self) -> Option<&mut Part> {
         unsafe { self.bounce_part.as_mut() }
     }
@@ -265,6 +339,10 @@ impl Part {
         }
     }
 
+    pub unsafe fn interactions_iter(&self) -> PartInteractionsIteratorMut {
+        PartInteractionsIteratorMut::new(self.interactions)
+    }
+
     /// Returns a list of tuples: ((x1, y1), (x2, y2), sag)
     pub fn rope_sections(&self) -> Option<Vec<((i16, i16), (i16, i16), i16)>> {
         if self.part_type != PartType::Rope.to_u16() { return None; }
@@ -323,6 +401,17 @@ impl Part {
         }
 
         Some(sections)
+    }
+
+    pub fn belt_section(&self) -> Option<((i16, i16, i16), (i16, i16, i16))> {
+        if self.part_type != PartType::Belt.to_u16() { return None; }
+
+        let belt = unsafe { self.belt_data.as_ref().unwrap() };
+        let part1 = unsafe { belt.part1.as_ref().unwrap() };
+        let part2 = unsafe { belt.part2.as_ref().unwrap() };
+
+        Some((((part1.pos_render.x + part1.belt_loc.x as i16), (part1.pos_render.y + part1.belt_loc.y as i16), (part1.belt_width as i16)),
+              ((part2.pos_render.x + part2.belt_loc.x as i16), (part2.pos_render.y + part2.belt_loc.y as i16), (part2.belt_width as i16))))
     }
 }
 
@@ -472,7 +561,11 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
             6 => Some((88, 50)),
             _ => None
         },
+        PartType::Conveyor => Some((32 + (index as i16 / 7)*16, 16)),
+        PartType::MortTheMouseCage => Some((48, 32)),
         PartType::Pulley => Some((16, 16)),
+        PartType::Basketball => Some((32, 32)),
+        PartType::Cage => Some((48, 64)),
         PartType::PokeyTheCat => match index {
             0 => Some((40, 41)),
             1 => Some((72, 57)),
@@ -486,10 +579,14 @@ pub extern fn part_image_size(part_type: c_int, index: u16, out: *mut ShortVec) 
             9 => Some((56, 44)),
             _ => None
         },
+        PartType::Gear => Some((40, 35)),
+        PartType::Bucket => Some((40, 48)),
+        PartType::EyeHook => Some((16, 16)),
+        PartType::Baseball => Some((16, 15)),
         PartType::RopeSeveredEnd => None,
         PartType::Nail => Some((16, 17)),
         _ => {
-            println!("Unimplemented part_image_size: {}", part_type);
+            println!("Unimplemented part_image_size: {:?}", PartType::from_u16(part_type as u16));
             None
         }
     };

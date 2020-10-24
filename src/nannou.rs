@@ -119,6 +119,14 @@ enum RenderItem {
         y2: i32,
         sag: i32
     },
+    Belt {
+        x1: i32,
+        y1: i32,
+        width1: i32,
+        x2: i32,
+        y2: i32,
+        width2: i32
+    },
     Text {
         x: i32,
         y: i32,
@@ -199,7 +207,11 @@ fn update(app: &App, model: &mut Model, _update: Update) {
         }
     }
 
-    let mut render_items = vec![];
+    // where the first layer is above everything else
+    let mut layers = vec![];
+    for _ in 0..6 {
+        layers.push(vec![]);
+    }
 
     // TIM logo
     // render_items.push(RenderItem::Image { id: ImageId::Part(56, 0), x: 0, y: 0 });
@@ -212,16 +224,29 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 
     
     {
-        let mut rope_render_items = vec![];
         let iter = unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) };
         for part in iter {
             let part_type = PartType::from_u16(part.part_type);
+            let mut render_items = &mut layers[parts::get_def(part_type).goobers.0 as usize];
 
             match part_type {
+                PartType::Belt => {
+                    if let Some(((x1, y1, width1), (x2, y2, width2))) = part.belt_section() {
+                        render_items.push(RenderItem::Belt {
+                            x1: x1 as i32,
+                            y1: y1 as i32,
+                            width1: width1 as i32,
+                            x2: x2 as i32,
+                            y2: y2 as i32,
+                            width2: width2 as i32,
+                        });
+                    }
+                },
+
                 PartType::Rope => {
                     if let Some(sections) = part.rope_sections() {
                         for ((x1, y1), (x2, y2), sag) in sections.into_iter() {
-                            rope_render_items.push(RenderItem::Rope {
+                            render_items.push(RenderItem::Rope {
                                 x1: x1 as i32,
                                 y1: y1 as i32,
                                 x2: x2 as i32,
@@ -275,8 +300,10 @@ fn update(app: &App, model: &mut Model, _update: Update) {
 
                             let part_x = part.pos.x as i32;
                             let part_y = part.pos.y as i32;
-                            for &(_goober, index, x, y) in part_images {
+                            for &(goober, index, x, y) in part_images {
                                 // TODO - flipping. use size_something to figure positions out.
+
+                                let mut render_items = &mut layers[goober as usize];
 
                                 let x = x as i32;
                                 let y = y as i32;
@@ -293,9 +320,12 @@ fn update(app: &App, model: &mut Model, _update: Update) {
                 }
             }
         }
+    }
 
-        // Render all ropes last
-        render_items.append(&mut rope_render_items);
+    let mut render_items = vec![];
+
+    for layer_items in layers.iter_mut().rev() {
+        render_items.append(layer_items);
     }
 
     if let Some((x, y)) = model.mouse_pos {
@@ -433,6 +463,40 @@ fn view(app: &App, model: &Model, frame: Frame) {
                     draw.polyline().weight(4.0).rgba8(0,0,0,255).points(points_iter.clone());
                     // Rope color
                     draw.polyline().weight(2.0).rgba8(240,176,0,255).points(points_iter);
+                },
+                &RenderItem::Belt { x1, y1, width1, x2, y2, width2 } => {
+                    let x1 = x1 as f32;
+                    let y1 = y1 as f32;
+                    let width1 = width1 as f32;
+                    let x2 = x2 as f32;
+                    let y2 = y2 as f32;
+                    let width2 = width2 as f32;
+
+                    let angle = f32::atan2(y2-y1, x2-x1);
+                    let ss = f32::sin(angle);
+                    let cc = -f32::cos(angle);
+                    let x1c = x1+width1/2.0;
+                    let y1c = y1+width1/2.0;
+                    let x2c = x2+width2/2.0;
+                    let y2c = y2+width2/2.0;
+
+                    let x1a = x1c - ss * width1/2.0;
+                    let y1a = y1c - cc * width1/2.0;
+                    let x2a = x2c - ss * width2/2.0;
+                    let y2a = y2c - cc * width2/2.0;
+                    let x1b = x1c + ss * width1/2.0;
+                    let y1b = y1c + cc * width1/2.0;
+                    let x2b = x2c + ss * width2/2.0;
+                    let y2b = y2c + cc * width2/2.0;
+
+                    let (x1a, y1a) = transform(x1a, y1a);
+                    let (x2a, y2a) = transform(x2a, y2a);
+                    let (x1b, y1b) = transform(x1b, y1b);
+                    let (x2b, y2b) = transform(x2b, y2b);
+
+                    draw.line().weight(2.0).rgba8(0,0,0,255).points(pt2(x1a, y1a), pt2(x2a, y2a));
+                    draw.line().weight(2.0).rgba8(0,0,0,255).points(pt2(x1b, y1b), pt2(x2b, y2b));
+
                 },
                 RenderItem::Text { x, y, text } => {
                     let (x, y) = transform(*x as f32, *y as f32);

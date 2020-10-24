@@ -367,7 +367,8 @@ void part_set_size_and_pos_render(struct Part *part) {
     }
 }
 
-/* TIMWIN: 1090:0240 */
+/* TIMWIN: 1090:0240
+   Note: I double-checked this for accuracy */
 void adjust_part_position(struct Part *part) {
     part->pos_x_hi_precision += part->vel_hi_precision.x;
     part->pos_y_hi_precision += part->vel_hi_precision.y;
@@ -1274,6 +1275,7 @@ int stub_1050_02db(struct Part *part) {
 }
 
 /* TIMWIN: 10a8:42e6
+   Note: I double-checked this for accuracy.
    Returns absoulute length between the two rope points.
    out_x and out_y are the signed x/y deltas between the two rope points.
 */
@@ -1316,7 +1318,8 @@ s16 distance_to_rope_link(struct RopeData *rope, struct Part *part, s16 *out_x, 
     return approx_hypot(abs(rope_x_1 - rope_x_2), abs(rope_y_1 - rope_y_2));
 }
 
-/* TIMWIN: 10a8:4509 */
+/* TIMWIN: 10a8:4509
+   Note: I double-checked this for accuracy */
 int stub_10a8_4509(struct Part *part_a, struct Part *part_b) {
     s32 force = part_a->force;
 
@@ -1333,7 +1336,7 @@ int stub_10a8_4509(struct Part *part_a, struct Part *part_b) {
         
         struct Llama *cur = LLAMA_2->next;
         while (cur) {
-            if (cur->force < force) break;
+            if (cur->force <= force) break;
             llama2_insert_point = cur;
             cur = cur->next;
         }
@@ -1382,7 +1385,8 @@ static inline void stub_10a8_3c6d(struct Part *part, byte param2, byte param3, u
     part_clamp_to_terminal_velocity(part);
 }
 
-/* TIMWIN: 10a8:3cc1 */
+/* TIMWIN: 10a8:3cc1
+   Note: I double-checked this for accuracy */
 int stub_10a8_3cc1(struct Part *part) {
     enum PartType links_to_0_type = part->links_to[0]->type;
 
@@ -1450,10 +1454,9 @@ int stub_10a8_3cc1(struct Part *part) {
     if (adj_distance_part > 0 && ANY_FLAGS(other_part->flags1, 0x1000)) {
         if (other_part->type != P_ROPE_SEVERED_END && part->type != P_ROPE_SEVERED_END && other_part->mass < part->mass) {
             s16 mass_delta = part->mass - other_part->mass;
-            s16 tmp = abs(adj_distance_part);
-            s32 tmp2 = (s32)tmp * (s32)mass_delta;
-            s16 tmp3 = (tmp2 + part->mass) / (part->mass);
-            tmp = abs(thing2);
+            s32 tmp2 = (s32)abs(adj_distance_part) * (s32)mass_delta;
+            s16 tmp3 = ((s32)tmp2 + (s32)part->mass) / (part->mass);
+            s16 tmp = abs(thing2);
             mass_delta = tmp3;
             if (mass_delta < 2) {
                 mass_delta = 1;
@@ -1471,7 +1474,7 @@ int stub_10a8_3cc1(struct Part *part) {
                     thing2 = rope_or_pulley_part->extra2;
 
                     stub_10a8_3cc1(other_part);
-                    other_part->flags1 &= ~(0x000f);
+                    other_part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
                     stub_1050_02db(other_part);
                     distance_other_part = distance_to_rope_link(rope, other_part, &delta_other_x, &delta_other_y);
                     mass_delta = distance_other_part - thing2;
@@ -1557,14 +1560,18 @@ int stub_10a8_3cc1(struct Part *part) {
             
             return 0;
         } else {
-            part->pos.x += (((s32)delta_part_x * (s32)thing1) / distance_part) - delta_part_x;
+            part->pos.x += (((s32)delta_part_x * (s32)thing1) / (s32)distance_part) - delta_part_x;
             part->pos_x_hi_precision = part->pos.x * 512;
 
-            part->pos.y += (((s32)delta_part_y * (s32)thing1) / distance_part) - delta_part_y;
+            part->pos.y += (((s32)delta_part_y * (s32)thing1) / (s32)distance_part) - delta_part_y;
             part->pos_y_hi_precision = part->pos.y * 512;
 
             part_set_size_and_pos_render(part);
-            stub_10a8_3c6d(part, 0, 0, 1);
+            // stub_10a8_3c6d(part, 0, 0, 1);
+            // This is what stub_10a8_3c6d effectively does:
+            part->vel_hi_precision.x = (part->pos.x - part->pos_prev1.x) * 512;
+            part_clamp_to_terminal_velocity(part);
+            //
 
             if (part->pos.x == part->pos_prev1.x) {
                 part->vel_hi_precision.y = 0;
@@ -1632,7 +1639,7 @@ void stub_1080_1777(struct Part *part) {
     if (part->rope_data[0]) {
         int v = stub_10a8_3cc1(part);
         if (v == 0) {
-            struct Part *saved_84 = part->bounce_part;
+            struct Part *saved_bounce_part = part->bounce_part;
             byte saved_86_0 = part->bounce_field_0x86[0];
             byte saved_86_1 = part->bounce_field_0x86[1];
             part->bounce_part = 0;
@@ -1640,7 +1647,7 @@ void stub_1080_1777(struct Part *part) {
             stub_1050_02db(part);
 
             if (!part->bounce_part) {
-                part->bounce_part = saved_84;
+                part->bounce_part = saved_bounce_part;
                 part->bounce_field_0x86[0] = saved_86_0;
                 part->bounce_field_0x86[1] = saved_86_1;
             }
@@ -1651,7 +1658,8 @@ void stub_1080_1777(struct Part *part) {
     }
 }
 
-/* TIMWIN: 1090:1480 */
+/* TIMWIN: 1090:1480
+   Note: I double-checked it for accuracy */
 void bucket_handle_contained_parts(struct Part *bucket) {
     if (bucket->type != P_BUCKET) {
         return;
@@ -1735,7 +1743,8 @@ static inline u16 stub_10a8_0328(struct Part *a, struct Part *b) {
                     (b->pos.y + b->size.y/2) - (a->pos.y + a->size.y/2));
 }
 
-/* TIMWIN: 1090:0809 */
+/* TIMWIN: 1090:0809
+   Note: I double-checked this for accuracy */
 void stub_1090_0809(struct Part *part) {
     // I think this function is called on bounce impact?
 
