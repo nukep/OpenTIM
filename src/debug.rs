@@ -44,25 +44,25 @@ pub fn dump_level_to_graphviz_file(filename: &str)-> std::io::Result<()> {
     let mut visited_ropedatas = HashSet::new();
     let mut visited_beltdatas = HashSet::new();
 
-    write!(mf, "digraph {{\n");
+    write!(mf, "digraph {{\n")?;
     for p in unsafe { tim_c::static_parts_iter().chain(tim_c::moving_parts_iter()) } {
         let part_label = graphviz_part_label(p);
 
-        write!(mf, "  {} [label={:?}]\n", part_label, PartType::from_u16(p.part_type));
+        write!(mf, "  {} [label={:?}]\n", part_label, PartType::from_u16(p.part_type))?;
 
         for (i, &rope_data) in p.rope_data.iter().enumerate() {
             if !rope_data.is_null() {
-                write!(mf, "  {} -> {} [label=rd{}]\n", part_label, graphviz_rope_label(rope_data), i+1);
+                write!(mf, "  {} -> {} [label=rd{}]\n", part_label, graphviz_rope_label(rope_data), i+1)?;
                 if !visited_ropedatas.contains(&rope_data) {
                     visited_ropedatas.insert(rope_data);
                     let rope_data = unsafe { rope_data.as_ref().unwrap() };
-                    write!(mf, "  {} [label=\"{:?}\",style=filled,fillcolor=red]\n", graphviz_rope_label(rope_data), (rope_data.part1_rope_slot, rope_data.part2_rope_slot));
-                    write!(mf, "  {} -> {} [label=main]\n", graphviz_rope_label(rope_data), graphviz_part_label(rope_data.rope_or_pulley_part));
+                    write!(mf, "  {} [label=\"{:?}\",style=filled,fillcolor=red]\n", graphviz_rope_label(rope_data), (rope_data.part1_rope_slot, rope_data.part2_rope_slot))?;
+                    write!(mf, "  {} -> {} [label=main]\n", graphviz_rope_label(rope_data), graphviz_part_label(rope_data.rope_or_pulley_part))?;
                     if !rope_data.part1.is_null() {
-                        write!(mf, "  {} -> {} [label=part1]\n", graphviz_rope_label(rope_data), graphviz_part_label(rope_data.part1));
+                        write!(mf, "  {} -> {} [label=part1]\n", graphviz_rope_label(rope_data), graphviz_part_label(rope_data.part1))?;
                     }
                     if !rope_data.part2.is_null() {
-                        write!(mf, "  {} -> {} [label=part2]\n", graphviz_rope_label(rope_data), graphviz_part_label(rope_data.part2));
+                        write!(mf, "  {} -> {} [label=part2]\n", graphviz_rope_label(rope_data), graphviz_part_label(rope_data.part2))?;
                     }
                 }
             }
@@ -75,12 +75,12 @@ pub fn dump_level_to_graphviz_file(filename: &str)-> std::io::Result<()> {
             belt_data.part2;
         }
         if !p.links_to[0].is_null() {
-            write!(mf, "  {} -> {} [label=linksto1]\n", part_label, graphviz_part_label(p.links_to[0]));
+            write!(mf, "  {} -> {} [label=linksto1]\n", part_label, graphviz_part_label(p.links_to[0]))?;
         }
         if !p.links_to[1].is_null() {
-            write!(mf, "  {} -> {} [label=linksto2]\n", part_label, graphviz_part_label(p.links_to[1]));
+            write!(mf, "  {} -> {} [label=linksto2]\n", part_label, graphviz_part_label(p.links_to[1]))?;
         }
     }
-    write!(mf, "}}\n");
+    write!(mf, "}}\n")?;
     Ok(())
 }
