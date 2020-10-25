@@ -33,19 +33,39 @@ struct BorderPoint {
 };
 
 enum Flags1_Flags {
-    // TODO - put flags here
+    F1_0001 = 0x0001,
+    F1_0002 = 0x0002,
+    F1_0004 = 0x0004,
+    F1_0008 = 0x0008,
     F1_EPHEMERAL = 0x0010,         // part despawns when we quit the simulation (e.g. bullets, rope fragments)
+    F1_0020 = 0x0020,
+    F1_0040 = 0x0040,
+    F1_1000 = 0x1000,
+    F1_2000 = 0x2000,
+    F1_4000 = 0x4000,
+    F1_8000 = 0x8000,
 };
 
 enum Flags2_Flags {
+    F2_0001 = 0x0001,
     F2_FLIP_HORZ = 0x0010,
     F2_FLIP_VERT = 0x0020,
-    F2_DISAPPEARED = 0x2000
+    F2_0040 = 0x0040,
+    F2_0200 = 0x0200,
+    F2_0400 = 0x0400,
+    F2_0800 = 0x0800,
+    F2_DISAPPEARED = 0x2000,
+    F2_4000 = 0x4000,
+    F2_8000 = 0x8000,
 };
 
 enum Flags3_Flags {
-    // TODO - put flags here
-    F3_placeholder
+    F3_0010 = 0x0010,
+    F3_LOCKED = 0x0040,
+    F3_0080 = 0x0080,
+    F3_0100 = 0x0100,
+    F3_0200 = 0x0200,
+    F3_0400 = 0x0400,
 };
 
 #include "generated/structs.h"
@@ -149,9 +169,9 @@ void play_sound(int id);
 
 static inline s16 approx_hypot(s16 x, s16 y) {
     if (x < y) {
-        return x/4 + x/8 + y;
+        return (x>>2) + (x>>3) + y;
     } else {
-        return y/4 + y/8 + x;
+        return (y>>2) + (y>>3) + x;
     }
 }
 
@@ -187,7 +207,7 @@ enum RopeFirstOrLast {
     ROPE_FROM_LAST = 1
 };
 
-s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, enum RopeFirstOrLast first_or_last);
+s16 approximate_hypot_of_rope(const struct RopeData *rope_data, enum RopeTime time, enum RopeFirstOrLast first_or_last);
 /* */
 
 

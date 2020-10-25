@@ -77,17 +77,17 @@ static inline void insert_part_into_root(struct Part *part, struct Part *root) {
 
 /* Partial from TIMWIN: 10a8:1e46 */
 void insert_part_into_static_parts(struct Part *part) {
-    return insert_part_into_root(part, &STATIC_PARTS_ROOT);
+    insert_part_into_root(part, &STATIC_PARTS_ROOT);
 }
 
 /* Partial from TIMWIN: 10a8:1e46 */
 void insert_part_into_moving_parts(struct Part *part) {
-    return insert_part_into_root(part, &MOVING_PARTS_ROOT);
+    insert_part_into_root(part, &MOVING_PARTS_ROOT);
 }
 
 /* Partial from TIMWIN: 10a8:1e46 */
 void insert_part_into_parts_bin(struct Part *part) {
-    return insert_part_into_root(part, &PARTS_BIN_ROOT);
+    insert_part_into_root(part, &PARTS_BIN_ROOT);
 }
 
 /* Partial from TIMWIN: 10b0:02a5 */
@@ -102,7 +102,7 @@ void initialize_llamas() {
 }
 
 /* TIMWIN: 10a8:0290
-   Note: double checked for accuracy */
+   Accurate */
 void four_points_adjust_p1_by_one(struct Line *points) {
     if (points->p1.x < points->p0.x) {
         points->p1.x -= 1;
@@ -132,7 +132,8 @@ static inline void calculate_border_normal_segment(struct BorderPoint *a, struct
     a->normal_angle = 0xc000 - angle;
 }
 
-/* TIMWIN: 10a8:26b5 */
+/* TIMWIN: 10a8:26b5
+   Accurate */
 void part_calculate_border_normals(struct Part *part) {
     // Calculate between first and last points...
     for (u16 i = 0; i < part->num_borders-1; i++) {
@@ -166,10 +167,10 @@ struct Part* next_part_or_fallback(struct Part *part, int choice) {
     if (part->next) {
         return part->next;
     }
-    if (ANY_FLAGS(part->flags1, 0x2000)) {
+    if (ANY_FLAGS(part->flags1, F1_2000)) {
         return get_first_part(choice);
     }
-    if (ANY_FLAGS(part->flags1, 0x1000) && (choice & CHOOSE_FROM_PARTS_BIN)) {
+    if (ANY_FLAGS(part->flags1, F1_1000) && (choice & CHOOSE_FROM_PARTS_BIN)) {
         return PARTS_BIN_ROOT.next;
     }
     return 0;
@@ -182,7 +183,7 @@ void part_free(struct Part *part) {
     if (part->borders_data) {
         free(part->borders_data);
     }
-    if (part->belt_data && NO_FLAGS(part->flags2, 0x0001)) {
+    if (part->belt_data && NO_FLAGS(part->flags2, F2_0001)) {
         free(part->belt_data);
     }
     if (part->rope_data[0] && (part->type == P_PULLEY || part->type == P_ROPE)) {
@@ -321,7 +322,7 @@ void part_set_size(struct Part *part) {
         return;
     }
 
-    if (ANY_FLAGS(part->flags1, 0x0040)) {
+    if (ANY_FLAGS(part->flags1, F1_0040)) {
         part->size = part->size_something2;
         return;
     }
@@ -368,12 +369,12 @@ void part_set_size_and_pos_render(struct Part *part) {
 }
 
 /* TIMWIN: 1090:0240
-   Note: I double-checked this for accuracy */
+   Accurate */
 void adjust_part_position(struct Part *part) {
     part->pos_x_hi_precision += part->vel_hi_precision.x;
     part->pos_y_hi_precision += part->vel_hi_precision.y;
 
-    if (ANY_FLAGS(part->flags1, 0x0001)) {
+    if (ANY_FLAGS(part->flags1, F1_0001)) {
         if (part_acceleration(part->type) <= 0) {
             part->pos_y_hi_precision -= 2 * 512;
         } else {
@@ -381,8 +382,8 @@ void adjust_part_position(struct Part *part) {
         }
     }
 
-    part->pos.x = part->pos_x_hi_precision / 512;
-    part->pos.y = part->pos_y_hi_precision / 512;
+    part->pos.x = part->pos_x_hi_precision >> 9;
+    part->pos.y = part->pos_y_hi_precision >> 9;
     if (part->pos.x < -1000) {
         part->pos.x = -1000;
         part->pos_x_hi_precision = part->pos.x * 512;
@@ -402,7 +403,8 @@ void adjust_part_position(struct Part *part) {
     part_set_size_and_pos_render(part);
 }
 
-/* TIMWIN: 1090:012d */
+/* TIMWIN: 1090:012d
+   Accurate */
 void part_clamp_to_terminal_velocity(struct Part *part) {
     const s16 tv = part_terminal_velocity(part->type);
 
@@ -419,7 +421,8 @@ void part_clamp_to_terminal_velocity(struct Part *part) {
     }
 }
 
-/* TIMWIN: 1090:01b0 */
+/* TIMWIN: 1090:01b0
+   Accurate */
 void part_update_vel_and_force(struct Part *part) {
     part->vel_hi_precision.y += part_acceleration(part->type);
     part_clamp_to_terminal_velocity(part);
@@ -427,7 +430,8 @@ void part_update_vel_and_force(struct Part *part) {
 }
 
 /* TIMWIN: 1050:0221
-   Returns 0 to 3. */
+   Returns 0 to 3.
+   Accurate */
 u16 quadrant_from_angle(u16 angle) {
     if (angle == 0x2000) {
         return 0;
@@ -443,8 +447,9 @@ u16 part_get_movement_delta_angle(struct Part *part) {
     return arctan_c(part->pos_prev1.x - part->pos.x, part->pos.y - part->pos_prev1.y);
 }
 
-/* TIMWIN: 10a8:176f */
-void stub_10a8_176f(struct RopeData *rope) {
+/* TIMWIN: 10a8:176f
+  Accurate */
+void update_rope_pos(struct RopeData *rope) {
     if (!rope->part1) return;
 
     struct Part *part1 = rope->part1;
@@ -528,10 +533,10 @@ void restore_parts_state_from_design() {
     for (struct Part *part = get_first_part(CHOOSE_STATIC_OR_ELSE_MOVING_PART); part != 0; ) {
         struct Part *nextpart = next_part_or_fallback(part, CHOOSE_MOVING_PART);
 
-        if (NO_FLAGS(part->flags1, 0x0010)) {
-            part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
+        if (NO_FLAGS(part->flags1, F1_EPHEMERAL)) {
+            part->flags1 &= ~(F1_0008 | F1_0004 | F1_0002 | F1_0001);
             part->flags2 = part->original_flags2;
-            part->flags3 &= ~(0x0400 | 0x0200 | 0x0100 | 0x0080 | 0x0010);
+            part->flags3 &= ~(F3_0400 | F3_0200 | F3_0100 | F3_0080 | F3_0010);
 
             part->pos_prev2.x = part->original_pos_x;
             part->pos_prev1.x = part->original_pos_x;
@@ -613,7 +618,7 @@ void restore_parts_state_from_design() {
                 }
             }
 
-            stub_10a8_176f(rope);
+            update_rope_pos(rope);
 
             s16 v;
             v = approximate_hypot_of_rope(rope, ROPETIME_CURRENT, ROPE_FROM_FIRST);
@@ -634,13 +639,13 @@ void restore_parts_state_from_design() {
 }
 
 /* TIMWIN: 1050:001e
-   Note: I double-checked it for accuracy */
+   Accurate */
 void tmp_3a6c_update_vars() {
     TMP_X2_3a6c = PART_3a6c->pos.x;
     TMP_Y2_3a6c = PART_3a6c->pos.y;
 
-    TMP_X_CENTER_3a6c = PART_3a6c->pos.x + PART_3a6c->size_something2.x/2;
-    TMP_Y_CENTER_3a6c = PART_3a6c->pos.y + PART_3a6c->size_something2.y/2;
+    TMP_X_CENTER_3a6c = PART_3a6c->pos.x + (PART_3a6c->size_something2.x>>1);
+    TMP_Y_CENTER_3a6c = PART_3a6c->pos.y + (PART_3a6c->size_something2.y>>1);
 
     TMP_X_DELTA_3a6c = PART_3a6c->pos.x - PART_3a6c->pos_prev1.x;
     TMP_Y_DELTA_3a6c = PART_3a6c->pos.y - PART_3a6c->pos_prev1.y;
@@ -653,20 +658,20 @@ void tmp_3a6c_update_vars() {
 }
 
 /* TIMWIN: 1050:00a8
-   Note: I double-checked it for accuracy */
+   Accurate */
 void tmp_3a6a_update_vars() {
     TMP_X_3a6a = PART_3a6a->pos.x;
     TMP_Y_3a6a = PART_3a6a->pos.y;
 
-    TMP_X_CENTER_3a6a = PART_3a6a->pos.x + PART_3a6a->size_something2.x/2;
-    TMP_Y_CENTER_3a6a = PART_3a6a->pos.y + PART_3a6a->size_something2.y/2;
+    TMP_X_CENTER_3a6a = PART_3a6a->pos.x + (PART_3a6a->size_something2.x>>1);
+    TMP_Y_CENTER_3a6a = PART_3a6a->pos.y + (PART_3a6a->size_something2.y>>1);
 
     TMP_X_RIGHT_3a6a = PART_3a6a->pos.x + PART_3a6a->size.x;
     TMP_Y_BOTTOM_3a6a = PART_3a6a->pos.y + PART_3a6a->size.y;
 }
 
 /* TIMWIN: 1050:00f0
-   Note: double-checked for accuracy */
+   Accurate */
 int stub_1050_00f0(u16 angle) {
     if (!PART_3a68) return 0;
     if (quadrant_from_angle(angle) != TMP_QUADRANT) return 0;
@@ -698,7 +703,7 @@ int stub_1050_00f0(u16 angle) {
 
 /* TIMWIN: 1050:025e
    Note: We changed the signature slightly, to pass bounce_field_0x86 directly.
-   Note: I double-checked this for accuracy.
+   Accurate
 */
 void stub_1050_025e(struct Line *line, s16 x, byte *bounce_field_0x86) {
     if (calculate_line_intersection_helper(x, line->p0.x, line->p1.x) != 0) {
@@ -722,7 +727,7 @@ void stub_1050_025e(struct Line *line, s16 x, byte *bounce_field_0x86) {
 
 /* TIMWIN: 1050:0550
    Very similar to stub_1050_08fe
-   Note: I double-checked this for accuracy. */
+   Accurate */
 int stub_1050_0550(bool some_bool) {
     struct BorderPoint* borders_data = PART_3a6a->borders_data;
     s16 b0x = TMP_X_3a6a + borders_data[0].x;
@@ -816,15 +821,15 @@ int stub_1050_0550(bool some_bool) {
                                 // TMP_X_DELTA_3a6c, TMP_Y_DELTA_3a6c, TMP_X_LEFTMOST_3a6c, TMP_Y_TOPMOST_3a6c, TMP_X_RIGHT_3a6c, TMP_Y_BOTTOM_3a6c
                                 tmp_3a6c_update_vars();
 
-                                PART_3a6c->flags1 &= ~(0x0004 | 0x0002);
+                                PART_3a6c->flags1 &= ~(F1_0004 | F1_0002);
 
                                 if (PART_3a6a->type == P_EIGHTBALL) {
-                                    PART_3a6c->flags1 |= 0x0004;
+                                    PART_3a6c->flags1 |= F1_0004;
                                 } else {
-                                    if (NO_FLAGS(PART_3a6c->flags2, 0x8000) && NO_FLAGS(PART_3a6a->flags2, 0x8000) && NO_FLAGS(PART_3a6a->flags1, 0x4000)) {
-                                        PART_3a6c->flags1 |= 0x0004;
+                                    if (NO_FLAGS(PART_3a6c->flags2, F2_8000) && NO_FLAGS(PART_3a6a->flags2, F2_8000) && NO_FLAGS(PART_3a6a->flags1, F1_4000)) {
+                                        PART_3a6c->flags1 |= F1_0004;
                                     } else {
-                                        PART_3a6c->flags1 |= 0x0002;
+                                        PART_3a6c->flags1 |= F1_0002;
                                     }
                                 }
 
@@ -971,7 +976,7 @@ bool part_collides_with_playfield_part(const struct Part *part) {
         if (ANY_FLAGS(curpart->flags2, F2_DISAPPEARED)) continue;
         if (should_parts_skip_collision(part->type, curpart->type)) continue;
 
-        if (NO_FLAGS(part->flags1, 0x4000) || NO_FLAGS(curpart->flags1, 0x4000)) {
+        if (NO_FLAGS(part->flags1, F1_4000) || NO_FLAGS(curpart->flags1, F1_4000)) {
             if (curpart->pos.x < part->pos.x+part->size.x &&
                 part->pos.x    < curpart->pos.x + curpart->size.x &&
                 curpart->pos.y < part->pos.y+part->size.y &&
@@ -995,7 +1000,8 @@ bool part_collides_with_playfield_part(const struct Part *part) {
     return 0;
 }
 
-/* TIMWIN: 1090:158b */
+/* TIMWIN: 1090:158b
+   Accurate */
 bool bucket_contains(struct Part *bucket, struct Part *contains) {
     if (bucket->type != P_BUCKET) return 0;
 
@@ -1009,7 +1015,7 @@ bool bucket_contains(struct Part *bucket, struct Part *contains) {
 
 /* TIMWIN: 1050:08fe
    Very similar to stub_1050_0550.
-   Note: I double-checked this for accuracy. */
+   Accurate */
 int stub_1050_08fe(bool some_bool) {
     struct BorderPoint *borders_data = PART_3a6c->borders_data;
     s16 b0x = TMP_X2_3a6c + borders_data[0].x;
@@ -1104,15 +1110,15 @@ int stub_1050_08fe(bool some_bool) {
                                 // TMP_X_DELTA_3a6c, TMP_Y_DELTA_3a6c, TMP_X_LEFTMOST_3a6c, TMP_Y_TOPMOST_3a6c, TMP_X_RIGHT_3a6c, TMP_Y_BOTTOM_3a6c
                                 tmp_3a6c_update_vars();
 
-                                PART_3a6c->flags1 &= ~(0x0004 | 0x0002);
+                                PART_3a6c->flags1 &= ~(F1_0004 | F1_0002);
 
                                 if (PART_3a6a->type == P_EIGHTBALL) {
-                                    PART_3a6c->flags1 |= 0x0004;
+                                    PART_3a6c->flags1 |= F1_0004;
                                 } else {
-                                    if (NO_FLAGS(PART_3a6c->flags2, 0x8000) && NO_FLAGS(PART_3a6a->flags2, 0x8000) && NO_FLAGS(PART_3a6a->flags1, 0x4000)) {
-                                        PART_3a6c->flags1 |= 0x0004;
+                                    if (NO_FLAGS(PART_3a6c->flags2, F2_8000) && NO_FLAGS(PART_3a6a->flags2, F2_8000) && NO_FLAGS(PART_3a6a->flags1, F1_4000)) {
+                                        PART_3a6c->flags1 |= F1_0004;
                                     } else {
-                                        PART_3a6c->flags1 |= 0x0002;
+                                        PART_3a6c->flags1 |= F1_0002;
                                     }
                                 }
 
@@ -1175,7 +1181,7 @@ int stub_1050_08fe(bool some_bool) {
 }
 
 /* TIMWIN: 1050:02db
-   Note: I double-checked it for accuracy */
+   Accurate */
 int stub_1050_02db(struct Part *part) {
     PART_3a6c = part;
     if (!part->borders_data) return 0;
@@ -1268,14 +1274,14 @@ int stub_1050_02db(struct Part *part) {
         part->bounce_part = 0;
     } else {
         if (stub_1050_00f0(part->bounce_angle) != 0) {
-            PART_3a6c->flags1 |= 0x0001;
+            PART_3a6c->flags1 |= F1_0001;
         }
     }
     return has_found_angle;
 }
 
 /* TIMWIN: 10a8:42e6
-   Note: I double-checked this for accuracy.
+   Accurate
    Returns absoulute length between the two rope points.
    out_x and out_y are the signed x/y deltas between the two rope points.
 */
@@ -1319,7 +1325,7 @@ s16 distance_to_rope_link(struct RopeData *rope, struct Part *part, s16 *out_x, 
 }
 
 /* TIMWIN: 10a8:4509
-   Note: I double-checked this for accuracy */
+   Accurate */
 int stub_10a8_4509(struct Part *part_a, struct Part *part_b) {
     s32 force = part_a->force;
 
@@ -1365,6 +1371,11 @@ int stub_10a8_4509(struct Part *part_a, struct Part *part_b) {
 void stub_10a8_2bea(struct ShortVec *pos, struct ShortVec *size, u8 param3, u8 param4, s16 param5) {
     // doesn't update parts or datas. might be related to drawing. could maybe omit in the port?
     // do nothing, and let's see how that works out.
+    (void)(pos);
+    (void)(size);
+    (void)(param3);
+    (void)(param4);
+    (void)(param5);
 }
 
 /* TIMWIN: 10a8:28f6 */
@@ -1372,21 +1383,23 @@ void stub_10a8_28f6(struct Part *part, int _unused) {
     // Called when ropes are used.
     // I think it's related to drawing. Could maybe omit in the port?
     // do nothing, and let's see how that works out.
+    (void)(part);
+    (void)(_unused);
 }
 
 /* TIMWIN: 10a8:3c6d */
-static inline void stub_10a8_3c6d(struct Part *part, byte param2, byte param3, u16 param4) {
-    if ((param4 & 1) != 0) {
-        part->vel_hi_precision.x = (part->pos.x - part->pos_prev1.x) << (9 - (param2 % 32));
-    }
-    if ((param4 & 2) != 0) {
-        part->vel_hi_precision.y = (part->pos.y - part->pos_prev1.y) << (9 - (param3 % 32));
-    }
-    part_clamp_to_terminal_velocity(part);
-}
+// static inline void stub_10a8_3c6d(struct Part *part, byte param2, byte param3, u16 param4) {
+//     if ((param4 & 1) != 0) {
+//         part->vel_hi_precision.x = (part->pos.x - part->pos_prev1.x) << (9 - (param2 % 32));
+//     }
+//     if ((param4 & 2) != 0) {
+//         part->vel_hi_precision.y = (part->pos.y - part->pos_prev1.y) << (9 - (param3 % 32));
+//     }
+//     part_clamp_to_terminal_velocity(part);
+// }
 
 /* TIMWIN: 10a8:3cc1
-   Note: I double-checked this for accuracy */
+   Accurate */
 int stub_10a8_3cc1(struct Part *part) {
     enum PartType links_to_0_type = part->links_to[0]->type;
 
@@ -1451,12 +1464,12 @@ int stub_10a8_3cc1(struct Part *part) {
         }
     }
 
-    if (adj_distance_part > 0 && ANY_FLAGS(other_part->flags1, 0x1000)) {
+    if (adj_distance_part > 0 && ANY_FLAGS(other_part->flags1, F1_1000)) {
         if (other_part->type != P_ROPE_SEVERED_END && part->type != P_ROPE_SEVERED_END && other_part->mass < part->mass) {
             s16 mass_delta = part->mass - other_part->mass;
             s32 tmp2 = (s32)abs(adj_distance_part) * (s32)mass_delta;
-            s16 tmp3 = ((s32)tmp2 + (s32)part->mass) / (part->mass);
-            s16 tmp = abs(thing2);
+            s16 tmp3 = ((s32)tmp2 + (s32)part->mass) / ((s32)part->mass);
+            // s16 tmp = abs(thing2);
             mass_delta = tmp3;
             if (mass_delta < 2) {
                 mass_delta = 1;
@@ -1474,7 +1487,7 @@ int stub_10a8_3cc1(struct Part *part) {
                     thing2 = rope_or_pulley_part->extra2;
 
                     stub_10a8_3cc1(other_part);
-                    other_part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
+                    other_part->flags1 &= ~(F1_0008 | F1_0004 | F1_0002 | F1_0001);
                     stub_1050_02db(other_part);
                     distance_other_part = distance_to_rope_link(rope, other_part, &delta_other_x, &delta_other_y);
                     mass_delta = distance_other_part - thing2;
@@ -1492,7 +1505,7 @@ int stub_10a8_3cc1(struct Part *part) {
                     thing2 = rope_or_pulley_part->extra1;
 
                     stub_10a8_3cc1(other_part);
-                    other_part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
+                    other_part->flags1 &= ~(F1_0008 | F1_0004 | F1_0002 | F1_0001);
                     stub_1050_02db(other_part);
                     distance_other_part = distance_to_rope_link(rope, other_part, &delta_other_x, &delta_other_y);
                     mass_delta = distance_other_part - thing2;
@@ -1560,10 +1573,10 @@ int stub_10a8_3cc1(struct Part *part) {
             
             return 0;
         } else {
-            part->pos.x += (((s32)delta_part_x * (s32)thing1) / (s32)distance_part) - delta_part_x;
+            part->pos.x += (s32)(((s32)delta_part_x * (s32)thing1) / (s32)distance_part) - delta_part_x;
             part->pos_x_hi_precision = part->pos.x * 512;
 
-            part->pos.y += (((s32)delta_part_y * (s32)thing1) / (s32)distance_part) - delta_part_y;
+            part->pos.y += (s32)(((s32)delta_part_y * (s32)thing1) / (s32)distance_part) - delta_part_y;
             part->pos_y_hi_precision = part->pos.y * 512;
 
             part_set_size_and_pos_render(part);
@@ -1623,7 +1636,7 @@ int stub_10a8_3cc1(struct Part *part) {
 }
 
 /* TIMWIN: 1080:1777
-   Note: I double-checked this for accuracy. */
+   Accurate */
 void stub_1080_1777(struct Part *part) {
     if (ANY_FLAGS(part->flags2, F2_DISAPPEARED)) return;
 
@@ -1632,7 +1645,7 @@ void stub_1080_1777(struct Part *part) {
     }
 
     adjust_part_position(part);
-    part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
+    part->flags1 &= ~(F1_0008 | F1_0004 | F1_0002 | F1_0001);
 
     stub_1050_02db(part);
 
@@ -1652,14 +1665,14 @@ void stub_1080_1777(struct Part *part) {
                 part->bounce_field_0x86[1] = saved_86_1;
             }
         } else {
-            part->flags1 &= ~(0x0008 | 0x0004 | 0x0002 | 0x0001);
+            part->flags1 &= ~(F1_0008 | F1_0004 | F1_0002 | F1_0001);
             stub_1050_02db(part);
         }
     }
 }
 
 /* TIMWIN: 1090:1480
-   Note: I double-checked it for accuracy */
+   Accurate */
 void bucket_handle_contained_parts(struct Part *bucket) {
     if (bucket->type != P_BUCKET) {
         return;
@@ -1672,7 +1685,7 @@ void bucket_handle_contained_parts(struct Part *bucket) {
         if (ANY_FLAGS(curpart->flags2, F2_DISAPPEARED)) continue;
         if (curpart->type == P_CAGE) continue;
 
-        s16 curpart_x_center = curpart->pos_prev1.x + curpart->size.x/2;
+        s16 curpart_x_center = curpart->pos_prev1.x + (curpart->size.x>>1);
         s16 curpart_y_bottom = curpart->pos_prev1.y + curpart->size.y;
         if (curpart->type == P_ROCKET) {
             curpart_y_bottom -= 12;
@@ -1683,9 +1696,9 @@ void bucket_handle_contained_parts(struct Part *bucket) {
         bool in_bucket = in_x && (((curpart->bounce_part == bucket) && (curpart->vel_hi_precision.y > 0)) || in_y);
 
         if (in_bucket) {
-            curpart->interactions = 0;
+            curpart->interactions = bucket->interactions;
             bucket->interactions = curpart;
-            curpart->flags3 |= 0x0010;
+            curpart->flags3 |= F3_0010;
 
             curpart->vel_hi_precision = bucket->vel_hi_precision;
 
@@ -1694,9 +1707,10 @@ void bucket_handle_contained_parts(struct Part *bucket) {
     }
 }
 
-/* TIMWIN: 10a8:45f8 */
+/* TIMWIN: 10a8:45f8
+   Accurate */
 void bucket_add_mass(struct Part *bucket, struct Part *part) {
-    s32 sum = bucket->mass + part->mass;
+    s32 sum = (s32)bucket->mass + (s32)part->mass;
     if (sum > 32000) {
         sum = 32000;
     }
@@ -1710,7 +1724,8 @@ void bucket_add_mass_of_contained(struct Part *bucket) {
     }
 }
 
-/* TIMWIN: 1090:15c8 */
+/* TIMWIN: 1090:15c8
+   Accurate */
 void bucket_move_contained(struct Part *bucket) {
     if (bucket->type != P_BUCKET) return;
 
@@ -1739,20 +1754,20 @@ static inline void check_play_bowling_ball_impact_sound(struct Part *part) {
 
 /* TIMWIN: 10a8:0328 */
 static inline u16 stub_10a8_0328(struct Part *a, struct Part *b) {
-    return arctan_c((a->pos.x + a->size.x/2) - (b->pos.x + b->size.x/2),
-                    (b->pos.y + b->size.y/2) - (a->pos.y + a->size.y/2));
+    return arctan_c((a->pos.x + (a->size.x>>1)) - (b->pos.x + (b->size.x>>1)),
+                    (b->pos.y + (b->size.y>>1)) - (a->pos.y + (a->size.y>>1)));
 }
 
 /* TIMWIN: 1090:0809
-   Note: I double-checked this for accuracy */
+   Accurate */
 void stub_1090_0809(struct Part *part) {
     // I think this function is called on bounce impact?
 
     check_play_bowling_ball_impact_sound(part);
 
     struct Part *bounce_part = part->bounce_part;
-    part->flags1 |= 0x0008;
-    bounce_part->flags1 |= 0x0008;
+    part->flags1 |= F1_0008;
+    bounce_part->flags1 |= F1_0008;
 
     s16 part_m = part_mass(part->type);
     s16 bounce_part_m = part_mass(bounce_part->type);
@@ -1779,10 +1794,10 @@ void stub_1090_0809(struct Part *part) {
     rotate_point_c(&x1, &y1, uneg(angle));
     rotate_point_c(&x2, &y2, uneg(angle));
 
-    part->vel_hi_precision.x = x1/2;
-    part->vel_hi_precision.y = y1/2;
-    bounce_part->vel_hi_precision.x = x2/2;
-    bounce_part->vel_hi_precision.y = y2/2;
+    part->vel_hi_precision.x = x1 >> 1;
+    part->vel_hi_precision.y = y1 >> 1;
+    bounce_part->vel_hi_precision.x = x2 >> 1;
+    bounce_part->vel_hi_precision.y = y2 >> 1;
 
     bool somebool = 0;
 
@@ -1790,7 +1805,7 @@ void stub_1090_0809(struct Part *part) {
         somebool = 1;
     }
 
-    if (ANY_FLAGS(part->flags1, 0x0001)) {
+    if (ANY_FLAGS(part->flags1, F1_0001)) {
         somebool = 1;
     }
 
@@ -1798,23 +1813,23 @@ void stub_1090_0809(struct Part *part) {
         somebool = 0;
     }
 
-    if (ANY_FLAGS(part->flags3, 0x0010)) {
+    if (ANY_FLAGS(part->flags3, F3_0010)) {
         somebool = 1;
     }
 
     if (somebool) {
-        if ((part->pos.x + part->size.x/2) < (bounce_part->pos.x + bounce_part->size.x/2)) {
+        if (((part->pos.x + part->size.x)>>1) < ((bounce_part->pos.x + bounce_part->size.x)>>1)) {
             if (part->vel_hi_precision.x > -0x400) {
                 part->vel_hi_precision.x = -0x400;
             }
-            if (NO_FLAGS(part->flags3, 0x0010) && bounce_part->vel_hi_precision.x < 0x400) {
+            if (NO_FLAGS(part->flags3, F3_0010) && bounce_part->vel_hi_precision.x < 0x400) {
                 bounce_part->vel_hi_precision.x = 0x400;
             }
         } else {
             if (part->vel_hi_precision.x < 0x400) {
                 part->vel_hi_precision.x = 0x400;
             }
-            if (NO_FLAGS(part->flags3, 0x0010) && (bounce_part->vel_hi_precision.x > -0x400)) {
+            if (NO_FLAGS(part->flags3, F3_0010) && (bounce_part->vel_hi_precision.x > -0x400)) {
                 bounce_part->vel_hi_precision.x = -0x400;
             }
         }
@@ -1848,7 +1863,8 @@ void stub_1090_0809(struct Part *part) {
     }
 }
 
-/* TIMWIN: 1090:0644 */
+/* TIMWIN: 1090:0644
+   Accurate */
 void stub_1090_0644(struct Part *part) {
     check_play_bowling_ball_impact_sound(part);
 
@@ -1874,7 +1890,7 @@ void stub_1090_0644(struct Part *part) {
     if (part_friction(part->type) == 0) {
         y1 = -y1;
     } else {
-        s32 v = -((s32)(y1 * part_bou) / 256);
+        s32 v = -(s32)(((u32)y1 * (u32)part_bou) >> 8);
 
         if (v < 0) {
             y1 = v + 0x40;
@@ -1907,7 +1923,8 @@ void stub_1090_0644(struct Part *part) {
     }
 }
 
-/* TIMWIN: 1090:033f */
+/* TIMWIN: 1090:033f
+   Accurate  */
 void stub_1090_033f(struct Part *part) {
     struct Part *bounce_part = part->bounce_part;
 
@@ -1938,23 +1955,23 @@ void stub_1090_033f(struct Part *part) {
     if ((part->vel_hi_precision.x <= 0 || utos(angle) <= 0) && (part->vel_hi_precision.x >= 0 || utos(angle) >= 0)) {
         tmp2 = 0;
     } else {
-        tmp2 = abs(((s32)s*(s32)part->vel_hi_precision.x) >> 0xe);
+        tmp2 = ((s32)s*(s32)part->vel_hi_precision.x) >> 14;
     }
 
-    s32 tmp4 = abs((((s32)c * (s32)abs(part_accel)) >> 0xe) + tmp2);
-    tmp4 = tmp4 * friction;
-    tmp4 = c * (s16)(((u32)tmp4) >> 8);
+    s32 tmp4 = abs(((s32)c * (s32)abs(part_accel)) >> 14) + abs(tmp2);
+    tmp4 = tmp4 * (s32)friction;
+    tmp4 = (s32)c * (s16)((u32)tmp4 >> 8);
 
     s16 tmp6;
-    if (NO_FLAGS(part->flags1, 0x0020)) {
-        tmp6 = abs(tmp4 >> 0xe) + 2;
+    if (NO_FLAGS(part->flags1, F1_0020)) {
+        tmp6 = abs(tmp4 >> 14) + 2;
     } else {
-        tmp6 = abs(tmp4 >> 0xe) + 32;
+        tmp6 = abs(tmp4 >> 14) + 32;
     }
 
-    tmp4 = (s16)((s*abs(part_accel)) >> 0xe) * abs(c);
+    tmp4 = (s16)(((s32)s*(s32)abs(part_accel)) >> 14) * abs(c);
 
-    s16 part_vel_x_hi = part->vel_hi_precision.x + (s16)(tmp4 >> 0xe);
+    s16 part_vel_x_hi = part->vel_hi_precision.x + (s16)(tmp4 >> 14);
     if (part_vel_x_hi < 0) {
         part_vel_x_hi += tmp6;
         if (part_vel_x_hi >= 0) {
@@ -1970,9 +1987,9 @@ void stub_1090_033f(struct Part *part) {
     part->vel_hi_precision.x = part_vel_x_hi;
 
     if (((angle + 0x4000) & 0x8000) == 0) {
-        part->vel_hi_precision.y = (sine_c(uneg(angle)) * part_vel_x_hi) >> 0xe;
+        part->vel_hi_precision.y = ((s32)sine_c(uneg(angle)) * (s32)part_vel_x_hi) >> 14;
     } else {
-        part->vel_hi_precision.y = (sine_c(uneg(angle)) * -part_vel_x_hi) >> 0xe;
+        part->vel_hi_precision.y = ((s32)sine_c(uneg(angle)) * -(s32)part_vel_x_hi) >> 14;
     }
 
     part_clamp_to_terminal_velocity(part);
@@ -2003,10 +2020,12 @@ bool calculate_intersecting_rect(struct GDIRect *out, struct GDIRect *a, struct 
 
 int stub_10a8_1329(struct BeltData *belt) {
     UNIMPLEMENTED;
+    (void)(belt);
     return 0;
 }
 
-/* TIMWIN: 10a8:21cb */
+/* TIMWIN: 10a8:21cb
+   Accurate */
 void stub_10a8_21cb(struct Part *part, u8 c) {
     if (SQUIRREL != 0) return;
 
@@ -2037,19 +2056,19 @@ void stub_10a8_21cb(struct Part *part, u8 c) {
             struct RopeData *rope = part->rope_data[0];
             if (rope && rope->rope_or_pulley_part->field_0x14 == 0) {
                 rope->rope_or_pulley_part->field_0x14 = c;
-                stub_10a8_176f(rope);
+                update_rope_pos(rope);
             }
             rope = part->rope_data[1];
             if (rope && rope->rope_or_pulley_part->field_0x14 == 0) {
                 rope->rope_or_pulley_part->field_0x14 = c;
-                stub_10a8_176f(rope);
+                update_rope_pos(rope);
             }
         } else {
             for (int i = 0; i < 2; i++) {
                 struct RopeData *rope = part->rope_data[i];
                 if (rope) {
                     rope->rope_or_pulley_part->field_0x14 = c;
-                    stub_10a8_176f(rope);
+                    update_rope_pos(rope);
                 }
             }
         }
@@ -2061,6 +2080,9 @@ void stub_10a8_28a5(struct Part *part, int _unused) {
     // stub_10a8_2bea doesn't update parts or datas. might be related to drawing. could maybe omit in the port?
     
     UNIMPLEMENTED;
+    
+    (void)(part);
+    (void)(_unused);
 }
 
 /* TIMWIN: 10a8:280a */
@@ -2090,23 +2112,23 @@ bool is_low_res_and_specific_part(enum PartType type) {
 
     // I'm not really sure what's so special about these parts.
     switch (type) {
-        P_BRICK_WALL:
-        P_INCLINE:
-        P_MORT_THE_MOUSE_CAGE:
-        P_CONVEYOR:
-        P_PULLEY:
-        P_LIGHT_SWITCH_OUTLET:
-        P_EYE_HOOK:
-        P_FAN:
-        P_MAGNIFYING_GLASS:
-        P_SOLAR_PANELS:
-        P_PIPE_STRAIGHT:
-        P_PIPE_CURVED:
-        P_WOOD_WALL:
-        P_ELECTRIC_ENGINE:
-        P_NAIL:
-        P_DIRT_WALL:
-        P_PINBALL_BUMPER:
+        case P_BRICK_WALL:
+        case P_INCLINE:
+        case P_MORT_THE_MOUSE_CAGE:
+        case P_CONVEYOR:
+        case P_PULLEY:
+        case P_LIGHT_SWITCH_OUTLET:
+        case P_EYE_HOOK:
+        case P_FAN:
+        case P_MAGNIFYING_GLASS:
+        case P_SOLAR_PANELS:
+        case P_PIPE_STRAIGHT:
+        case P_PIPE_CURVED:
+        case P_WOOD_WALL:
+        case P_ELECTRIC_ENGINE:
+        case P_NAIL:
+        case P_DIRT_WALL:
+        case P_PINBALL_BUMPER:
             return 1;
 
         default:
@@ -2235,12 +2257,14 @@ void stub_10a8_078e(struct RopeData *rope) {
 /* TIMWIN: 10a8:0880 */
 struct Part* stub_10a8_0880(struct Part *a, struct Part *b) {
     UNIMPLEMENTED;
+    (void)(a);
+    (void)(b);
     return 0;
 }
 
 /* TIMWIN: 10a8:0ab8 */
 struct Part* stub_10a8_0ab8(struct Part *part) {
-    if (part && NO_FLAGS(part->flags3, 0x0040)) {
+    if (part && NO_FLAGS(part->flags3, F3_LOCKED)) {
         struct Part *p = stub_10a8_0880(part, part);
         if (p) {
             return p;
@@ -2252,13 +2276,13 @@ struct Part* stub_10a8_0ab8(struct Part *part) {
     EACH_STATIC_THEN_MOVING_PART(curpart) {
         struct Part *somepart = stub_10a8_0880(part, curpart);
 
-        if (part && ANY_FLAGS(somepart->flags1, 0x8000)) {
+        if (part && ANY_FLAGS(somepart->flags1, F1_8000)) {
             continue;
         }
 
         if (somepart) {
             anotherpart = somepart;
-            if (NO_FLAGS(somepart->flags1, 0x8000) && NO_FLAGS(somepart->flags3, 0x0040)) {
+            if (NO_FLAGS(somepart->flags1, F1_8000) && NO_FLAGS(somepart->flags3, F3_LOCKED)) {
                 return somepart;
             }
         }
@@ -2278,12 +2302,12 @@ struct Part* stub_10a8_0ab8(struct Part *part) {
 /* TIMWIN: 1080:1464 */
 void advance_parts() {
     EACH_STATIC_PART(part) {
-        part->flags2 &= ~(0x0400 | 0x0200 | 0x0040);
+        part->flags2 &= ~(F2_0400 | F2_0200 | F2_0040);
     }
 
     for (struct Llama *p = LLAMA_2; p != 0; p = p->next) {
         struct Part *part = p->part;
-        if (NO_FLAGS(part->flags2, 0x0040)) {
+        if (NO_FLAGS(part->flags2, F2_0040)) {
             part_run(part);
         }
     }
@@ -2291,19 +2315,19 @@ void advance_parts() {
     move_llama2_to_beginning_of_llama1();
 
     EACH_STATIC_PART(part) {
-        if (ANY_FLAGS(part->flags2, 0x0800) && NO_FLAGS(part->flags2, F2_DISAPPEARED | 0x0040)) {
+        if (ANY_FLAGS(part->flags2, F2_0800) && NO_FLAGS(part->flags2, F2_DISAPPEARED | F2_0040)) {
             part_run(part);
         }
     }
 
     EACH_STATIC_PART(part) {
-        if (part->type == P_GEAR && NO_FLAGS(part->flags2, F2_DISAPPEARED | 0x0040)) {
+        if (part->type == P_GEAR && NO_FLAGS(part->flags2, F2_DISAPPEARED | F2_0040)) {
             part_run(part);
         }
     }
 
     EACH_STATIC_PART(part) {
-        if (NO_FLAGS(part->flags2, F2_DISAPPEARED | 0x0800 | 0x0040)) {
+        if (NO_FLAGS(part->flags2, F2_DISAPPEARED | F2_0800 | F2_0040)) {
             part_run(part);
         }
     }
@@ -2319,7 +2343,7 @@ void advance_parts() {
             part_update_vel_and_force(part);
         }
         part->mass = part_mass(part->type);
-        part->flags3 &= ~(0x0010);
+        part->flags3 &= ~(F3_0010);
     }
 
     EACH_MOVING_PART(part) {
@@ -2351,12 +2375,12 @@ void advance_parts() {
     }
 
     EACH_MOVING_PART(part) {
-        if (NO_FLAGS(part->flags1, 0x0008) && NO_FLAGS(part->flags2, F2_DISAPPEARED)) {
-            if (ANY_FLAGS(part->flags1, 0x0004 | 0x0002) && part->type == P_MEL_SCHLEMMING) {
+        if (NO_FLAGS(part->flags1, F1_0008) && NO_FLAGS(part->flags2, F2_DISAPPEARED)) {
+            if (ANY_FLAGS(part->flags1, F1_0004 | F1_0002) && part->type == P_MEL_SCHLEMMING) {
                 MEL_JUMPY(part);
             }
-            if (NO_FLAGS(part->flags1, 0x0002)) {
-                if (ANY_FLAGS(part->flags1, 0x0004)) {
+            if (NO_FLAGS(part->flags1, F1_0002)) {
+                if (ANY_FLAGS(part->flags1, F1_0004)) {
                     int res = part_bounce(part->bounce_part->type, part);
                     if (res != 0) {
                         stub_1090_0809(part);
@@ -2365,7 +2389,7 @@ void advance_parts() {
             } else {
                 int res = part_bounce(part->bounce_part->type, part);
                 if (res != 0) {
-                    if (NO_FLAGS(part->flags1, 0x0001) || part->type == P_MEL_SCHLEMMING) {
+                    if (NO_FLAGS(part->flags1, F1_0001) || part->type == P_MEL_SCHLEMMING) {
                         // Seems to get called when the part has to bounce off a surface
                         stub_1090_0644(part);
                     } else {

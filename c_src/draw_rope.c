@@ -1,8 +1,9 @@
 #include "tim.h"
 
-/* TIMWIN: 10a8:396f */
-s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, enum RopeFirstOrLast first_or_last) {
-    struct RopeData *a, *b;
+/* TIMWIN: 10a8:396f
+   Accurate */
+s16 approximate_hypot_of_rope(const struct RopeData *rope_data, enum RopeTime time, enum RopeFirstOrLast first_or_last) {
+    const struct RopeData *a, *b;
     int i_a, i_b;
 
     if (first_or_last == ROPE_FROM_FIRST) {
@@ -19,7 +20,7 @@ s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, en
         }
     } else {
         // From the last part
-        if (rope_data->part2 == 0) {
+        if (!rope_data->part2) {
             return 0;
         }
         
@@ -36,7 +37,7 @@ s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, en
         }
     }
 
-    if (b == 0) {
+    if (!b) {
         return 0;
     }
 
@@ -55,7 +56,8 @@ s16 approximate_hypot_of_rope(struct RopeData *rope_data, enum RopeTime time, en
     }
 }
 
-/* TIMWIN: 10a8:3b05 */
+/* TIMWIN: 10a8:3b05
+   Accurate */
 s16 calculate_rope_sag(const struct Part *part, const struct RopeData *rope_data, enum RopeTime time) {
     struct Part *nextpart;
     if (part->type == P_PULLEY) {
@@ -73,11 +75,11 @@ s16 calculate_rope_sag(const struct Part *part, const struct RopeData *rope_data
         switch (time) {
             case ROPETIME_PREV2: v = rope_part->extra1_prev2; break;
             case ROPETIME_PREV1: v = rope_part->extra1_prev1; break;
-            default:    v = rope_part->extra1; break;
+            default:             v = rope_part->extra1; break;
         }
-        return v - approximate_hypot_of_rope(rope_data, time, 0);
+        return v - approximate_hypot_of_rope(rope_data, time, ROPE_FROM_FIRST);
     } else {
-        if (nextpart == 0) {
+        if (!nextpart) {
             return 0;
         }
         if (rope_data->part2 != nextpart) {
@@ -88,10 +90,10 @@ s16 calculate_rope_sag(const struct Part *part, const struct RopeData *rope_data
         switch (time) {
             case ROPETIME_PREV2: v = rope_part->extra2_prev2; break;
             case ROPETIME_PREV1: v = rope_part->extra2_prev1; break;
-            default:    v = rope_part->extra2; break;
+            default:             v = rope_part->extra2; break;
         }
 
-        return v - approximate_hypot_of_rope(rope_data, time, 1);
+        return v - approximate_hypot_of_rope(rope_data, time, ROPE_FROM_LAST);
     }
 }
 

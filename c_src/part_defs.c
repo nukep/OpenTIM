@@ -332,6 +332,9 @@ void stub_1090_1289(struct Part *teeter_part, enum GetPartsFlags choice, const s
     }
 }
 
+// implemented in Rust
+void teeter_totter_reset(struct Part *part);
+
 /* TIMWIN: 10d0:0000 */
 int teeter_totter_bounce(struct Part *part) {
     if (ANY_FLAGS(part->bounce_part->flags2, 0x0200)) {
@@ -342,7 +345,7 @@ int teeter_totter_bounce(struct Part *part) {
     s16 new_state2 = 1;
 
     if (idx == 0) {
-        s16 ivar3 = part->pos.x + part->size.x/2 - part->bounce_part->pos.x;
+        s16 ivar3 = part->pos.x + (part->size.x>>1) - part->bounce_part->pos.x;
         if (ivar3 < 44) {
             if (ivar3 >= 37) {
                 return 1;
@@ -403,7 +406,7 @@ void teeter_totter_run(struct Part *part) {
                 play_sound(0x12);
             }
             part_set_size_and_pos_render(part);
-            s16 teeter_center_x = part->pos.x + part->size.x/2;
+            s16 teeter_center_x = part->pos.x + (part->size.x>>1);
 
             /* TIMWIN: 1108:2f16 */
             static const struct Line dat_1108_2f16[3] = {
@@ -419,18 +422,18 @@ void teeter_totter_run(struct Part *part) {
                 s16 speed = teeter_totter_helper_get_part_speed(curpart);
                 if (part->state2 == -1) {
                     if (curpart_center_x < teeter_center_x) {
-                        curpart->vel_hi_precision.x = -speed / 4;
+                        curpart->vel_hi_precision.x = -(speed >> 2);
                         curpart->vel_hi_precision.y = speed;
                     } else {
-                        curpart->vel_hi_precision.x = speed / 4;
+                        curpart->vel_hi_precision.x = (speed >> 2);
                         curpart->vel_hi_precision.y = -speed;
                     }
                 } else if (part->state2 == 1) {
                     if (curpart_center_x < teeter_center_x) {
-                        curpart->vel_hi_precision.x = -speed / 4;
+                        curpart->vel_hi_precision.x = -(speed >> 2);
                         curpart->vel_hi_precision.y = -speed;
                     } else {
-                        curpart->vel_hi_precision.x = speed / 4;
+                        curpart->vel_hi_precision.x = (speed >> 2);
                         curpart->vel_hi_precision.y = speed;
                     }
                 }
@@ -576,7 +579,7 @@ void balloon_run(struct Part *part) {
 }
 
 /* TIMWIN: 1048:082b */
-int balloon_rope(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_pass, s32 p1_force) {
+int balloon_rope(struct Part *p1, struct Part *p2, int rope_slot, u16 flags, s16 p1_mass, s32 p1_force) {
     if (flags == 0x0001) {
         p2->rope_data[0]->rope_unknown += 1;
         return 0;

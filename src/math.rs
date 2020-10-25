@@ -213,7 +213,7 @@ pub fn arctan(dx: i32, dy: i32) -> u16 {
 /// TIMWIN: 10c8:2946
 /// Returns value from -0x4000 to +0x4000 inclusive.
 pub extern fn sine(angle: u16) -> i16 {
-    let mut angle = angle.wrapping_add(0xC000) / 16;
+    let mut angle = angle.wrapping_add(0xC000) >> 4;
 
     if (angle & 0x0800) != 0 {
         // make angle less than 0x0800.
@@ -226,7 +226,7 @@ pub extern fn sine(angle: u16) -> i16 {
 /// TIMWIN: 10c8:296e
 /// Returns value from -0x4000 to +0x4000 inclusive.
 pub fn cosine(angle: u16) -> i16 {
-    let mut angle = angle / 16;
+    let mut angle = angle >> 4;
 
     if (angle & 0x0800) != 0 {
         // make angle less than 0x0800.

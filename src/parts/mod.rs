@@ -2956,7 +2956,7 @@ mod trampoline {
         if rel_x > -15 && rel_x < 15 {
             trampoline.state2 = 1;
             if part.vel_hi_precision.x.abs() >= 1024 {
-                part.vel_hi_precision.x /= 2;
+                part.vel_hi_precision.x >>= 1;
             }
             part.bounce_part = std::ptr::null_mut();
             part.flags1 &= !(0x0001);
